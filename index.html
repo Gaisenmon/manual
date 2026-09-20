@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>凱旋門 マニュアルアプリ</title>
+<style>
+  :root {
+    /* 凱旋門ブランドカラーを継承 */
+    --charcoal: #241E19; --charcoal-2: #332A22;
+    --ember: #C1531B; --ember-dark: #9C4013;
+    --cream: #FBF6EE; --card: #FFFFFF;
+    --ink: #2B2420; --muted: #8A7F72; --line: #E7DFD2;
+    --c-hall: #2F6B7A; --bg-hall: #E4EEF1;
+    --c-kitchen: #9C4013; --bg-kitchen: #F5E7DA;
+    --c-special: #684596; --bg-special: #EDE7F3;
+    --c-rule: #3F7D4C; --bg-rule: #E4F1E6;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: #EFEAE1; color: var(--ink); font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  
+  /* スマホアプリ風コンテナ（PCで見てもスマホサイズになるように） */
+  .app-container {
+    max-width: 480px; margin: 0 auto; background: var(--cream);
+    min-height: 100vh; position: relative; display: flex; flex-direction: column;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow-x: hidden;
+  }
+  
+  /* 上部ヘッダー */
+  header {
+    background: linear-gradient(135deg, var(--charcoal), var(--charcoal-2));
+    color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 800; letter-spacing: 0.05em; }
+  
+  /* メインコンテンツ領域 */
+  main { flex: 1; padding: 16px 16px 80px; overflow-y: auto; }
+
+  /* セクションタイトル */
+  .sec-title { font-size: 15px; font-weight: 800; margin: 0 0 12px; border-bottom: 2px solid var(--ember); display: inline-block; padding-bottom: 4px; }
+
+  /* ボトムナビゲーション */
+  .bottom-nav {
+    position: fixed; bottom: 0; width: 100%; max-width: 480px;
+    background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line); display: flex; justify-content: space-around;
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); z-index: 100;
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer; flex: 1;
+  }
+  .nav-item.active { color: var(--ember); }
+  .nav-icon { font-size: 20px; }
+
+  /* 検索バー（アプリ風） */
+  .search-bar {
+    background: #fff; border-radius: 20px; padding: 10px 16px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid var(--line);
+  }
+  .search-bar input { border: none; outline: none; width: 100%; font-size: 14px; background: transparent; }
+
+  /* カテゴリパネル（さがす画面用） */
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+  .cat-panel {
+    border-radius: 12px; padding: 16px; font-weight: 800; font-size: 14px;
+    display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: 0.2s;
+  }
+  .cat-panel:active { transform: scale(0.97); }
+  .cat-panel.hall { background: var(--bg-hall); color: var(--c-hall); border: 1px solid rgba(47,107,122,0.2); }
+  .cat-panel.kitchen { background: var(--bg-kitchen); color: var(--c-kitchen); border: 1px solid rgba(156,64,19,0.2); }
+  .cat-panel.special { background: var(--bg-special); color: var(--c-special); border: 1px solid rgba(104,69,150,0.2); }
+  .cat-panel.rule { background: var(--bg-rule); color: var(--c-rule); border: 1px solid rgba(63,125,76,0.2); }
+
+  /* マニュアルカード */
+  .m-card {
+    background: var(--card); border-radius: 12px; margin-bottom: 12px; padding: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04); border: 1px solid var(--line);
+    display: flex; gap: 12px; align-items: center; cursor: pointer;
+  }
+  .m-card:active { background: #f9f9f9; }
+  .m-thumb {
+    width: 64px; height: 64px; border-radius: 8px; background: var(--line); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+  }
+  .m-info { flex: 1; }
+  .m-title { font-size: 14px; font-weight: 800; margin: 0 0 4px; line-height: 1.3; }
+  .m-meta { display: flex; gap: 6px; font-size: 10px; font-weight: 700; }
+  .tag { padding: 2px 6px; border-radius: 4px; background: var(--cream); color: var(--muted); }
+
+  /* --------------------------------- */
+  /* マニュアル閲覧ビュー（全画面オーバーレイ） */
+  /* --------------------------------- */
+  .viewer {
+    position: fixed; inset: 0; background: #fff; z-index: 200;
+    display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.1, 0.8, 0.2, 1);
+  }
+  .viewer.open { transform: translateY(0); }
+  
+  .v-header {
+    background: #fff; padding: 16px; border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .v-close { font-size: 24px; color: var(--charcoal); cursor: pointer; font-weight: bold; }
+  
+  /* OJTスイッチ */
+  .ojt-switch {
+    display: flex; align-items: center; gap: 8px; background: var(--bg-kitchen);
+    padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; color: var(--c-kitchen);
+  }
+  .toggle {
+    width: 34px; height: 20px; background: rgba(0,0,0,0.2); border-radius: 10px; position: relative;
+  }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    background: #fff; border-radius: 50%; transition: 0.2s;
+  }
+  .ojt-switch.active .toggle { background: var(--ember); }
+  .ojt-switch.active .toggle::after { transform: translateX(14px); }
+
+  .v-content { flex: 1; overflow-y: auto; padding-bottom: 40px; background: var(--cream); }
+  
+  /* ステップ形式のUI */
+  .step-card {
+    background: #fff; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 16px;
+  }
+  .step-img {
+    width: 100%; aspect-ratio: 4/3; background: #E0D9D0; display: flex; align-items: center;
+    justify-content: center; font-size: 40px; color: #fff; margin-bottom: 12px;
+  }
+  .step-text { padding: 0 16px; }
+  .step-num { color: var(--ember); font-weight: 900; font-size: 12px; margin-bottom: 4px; }
+  .step-desc { font-size: 15px; font-weight: 700; line-height: 1.6; }
+  
+  /* 指導のコツ（OJTモードONで表示） */
+  .ojt-tip {
+    margin: 12px 16px 0; padding: 12px; background: #FEF2F2; border-left: 4px solid #EF4444;
+    border-radius: 4px; font-size: 13px; font-weight: 700; color: #991B1B; display: none;
+  }
+  .viewer.ojt-on .ojt-tip { display: block; animation: fadeIn 0.3s; }
+
+  /* 既読ボタン */
+  .btn-read {
+    display: block; width: calc(100% - 32px); margin: 24px auto; background: var(--charcoal);
+    color: #fff; text-align: center; padding: 14px; border-radius: 8px; font-weight: 800; font-size: 15px; cursor: pointer;
+  }
+  .btn-read.done { background: var(--green); }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <header>
+    <h1>凱旋門 マニュアル</h1>
+    <div style="font-size: 18px;">🔔</div>
+  </header>
+
+  <main id="main-view">
+    <!-- コンテンツはJSで切り替え -->
+  </main>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('home', this)">
+      <div class="nav-icon">🏠</div>
+      <span>ホーム</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('explore', this)">
+      <div class="nav-icon">🔍</div>
+      <span>さがす</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('bookmark', this)">
+      <div class="nav-icon">⭐</div>
+      <span>マイ学習</span>
+    </div>
+  </div>
+
+  <!-- マニュアル閲覧ビュー -->
+  <div class="viewer" id="manual-viewer">
+    <div class="v-header">
+      <div class="v-close" onclick="closeManual()">✕</div>
+      <div class="ojt-switch" id="ojt-toggle" onclick="toggleOJT()">
+        指導モード <div class="toggle"></div>
+      </div>
+    </div>
+    <div class="v-content" id="viewer-content">
+      <!-- JSで動的生成 -->
+    </div>
+  </div>
+</div>
+
+<script>
+// マニュアルのサンプルデータ（Teachme Biz風のステップ構造）
+const manuals = [
+  {
+    id: 1, title: "お肉の提供手順と部位の説明", category: "hall", sub: "出し", icon: "🥩",
+    isNew: true, isBookmarked: true,
+    steps: [
+      { imgIcon: "🔥", text: "提供前に必ず網の状態をチェックします。焦げが目立つ場合は「網をお取替えしましょうか？」と先にお声がけします。",
+        ojt: "新人スタッフは網交換のタイミングが掴めません。「お肉を出す前が最大のチャンス」と教えてあげてください。" },
+      { imgIcon: "🗣️", text: "お肉の正面をお客様に向け、「特選カルビでございます」とハッキリした声と笑顔で提供します。",
+        ojt: "声が小さい新人が多いので、ここでは『声のトーンをワントーン上げる』ことを意識させます。" },
+      { imgIcon: "⏱️", text: "厚切り肉や特殊部位の場合は「片面◯秒ずつ焼いていただくと美味しいです」とワンポイント添えます。",
+        ojt: "部位ごとの秒数一覧表（バックヤード掲示）を一緒に確認しながら教えると定着が早いです。" }
+    ]
+  },
+  {
+    id: 2, title: "服務規律・身だしなみチェック", category: "rule", sub: "服務規律", icon: "👔",
+    isNew: true, isBookmarked: false,
+    steps: [
+      { imgIcon: "💇‍♀️", text: "出勤時、髪色が規定のトーンに収まっているか、長い髪は清潔に結ばれているか確認します。",
+        ojt: "注意しづらい部分ですが、ルールブックのカラーチャートを直接見せて客観的に指導してください。" },
+      { imgIcon: "💅", text: "爪は短く切りそろえ、ネイルやマニキュアは一切禁止です。",
+        ojt: "出勤直前のチェックだけでなく、面接や採用オリエンテーションの段階で強く念押しする項目です。" }
+    ]
+  }
+];
+
+const mainView = document.getElementById("main-view");
+const viewer = document.getElementById("manual-viewer");
+const viewerContent = document.getElementById("viewer-content");
+const ojtToggle = document.getElementById("ojt-toggle");
+let isOjtMode = false;
+
+// 画面レンダリング関数
+function renderHome() {
+  let html = `<div class="search-bar"><span style="font-size:18px;">🔍</span><input type="text" placeholder="キーワードで探す（例：レジ、網交換）"></div>`;
+  html += `<h2 class="sec-title">最近更新されたマニュアル</h2>`;
+  manuals.filter(m => m.isNew).forEach(m => html += createCard(m));
+  mainView.innerHTML = html;
+}
+
+function renderExplore() {
+  let html = `
+    <h2 class="sec-title">カテゴリから探す</h2>
+    <div class="cat-grid">
+      <div class="cat-panel hall"><div>① ホール</div><span style="font-size:24px;">🏃‍♂️</span></div>
+      <div class="cat-panel kitchen"><div>② キッチン</div><span style="font-size:24px;">🔪</span></div>
+      <div class="cat-panel special"><div>③ 特殊技能</div><span style="font-size:24px;">📊</span></div>
+      <div class="cat-panel rule"><div>④ ルール</div><span style="font-size:24px;">📖</span></div>
+    </div>
+    <h2 class="sec-title">すべてのマニュアル</h2>
+  `;
+  manuals.forEach(m => html += createCard(m));
+  mainView.innerHTML = html;
+}
+
+function renderBookmark() {
+  let html = `<h2 class="sec-title">マイ学習（お気に入り）</h2>`;
+  const bkmks = manuals.filter(m => m.isBookmarked);
+  if(bkmks.length === 0) html += `<p style="color:var(--muted);font-size:13px;">ピン留めしたマニュアルがここに表示されます。</p>`;
+  bkmks.forEach(m => html += createCard(m));
+  mainView.innerHTML = html;
+}
+
+function createCard(m) {
+  return `
+    <div class="m-card" onclick="openManual(${m.id})">
+      <div class="m-thumb">${m.icon}</div>
+      <div class="m-info">
+        <div class="m-meta"><span class="tag">${m.sub}</span></div>
+        <h3 class="m-title">${m.title}</h3>
+      </div>
+    </div>
+  `;
+}
+
+// タブ切り替え
+function switchTab(tab, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  if(tab === 'home') renderHome();
+  if(tab === 'explore') renderExplore();
+  if(tab === 'bookmark') renderBookmark();
+  window.scrollTo(0,0);
+}
+
+// マニュアル詳細ビュー
+function openManual(id) {
+  const m = manuals.find(x => x.id === id);
+  let html = `<div style="padding: 20px 16px 12px;">
+                <span class="tag" style="background:#E4EEF1;color:#2F6B7A;margin-bottom:8px;display:inline-block;">${m.sub}</span>
+                <h2 style="margin:0;font-size:18px;font-weight:900;line-height:1.4;">${m.title}</h2>
+              </div>`;
+  
+  m.steps.forEach((s, idx) => {
+    html += `
+      <div class="step-card">
+        <div class="step-img">${s.imgIcon}</div>
+        <div class="step-text">
+          <div class="step-num">STEP ${idx + 1}</div>
+          <div class="step-desc">${s.text}</div>
+        </div>
+        <div class="ojt-tip">💡 教えるポイント<br>${s.ojt}</div>
+      </div>
+    `;
+  });
+  html += `<div class="btn-read" onclick="this.classList.add('done'); this.innerText='確認しました ✓';">確認しました</div>`;
+  
+  viewerContent.innerHTML = html;
+  viewer.classList.add("open");
+}
+
+function closeManual() {
+  viewer.classList.remove("open");
+  // 閉じた時にOJTモードをリセットする
+  isOjtMode = false;
+  viewer.classList.remove("ojt-on");
+  ojtToggle.classList.remove("active");
+}
+
+function toggleOJT() {
+  isOjtMode = !isOjtMode;
+  ojtToggle.classList.toggle("active", isOjtMode);
+  viewer.classList.toggle("ojt-on", isOjtMode);
+}
+
+// 初期化
+renderHome();
+</script>
+</body>
+</html>

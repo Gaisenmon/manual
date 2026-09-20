@@ -6,11 +6,14 @@
 <title>凱旋門 マニュアルアプリ</title>
 <style>
   :root {
-    /* 凱旋門ブランドカラーを継承 */
+    /* 凱旋門ATS管理システムのブランドカラーを完全継承 */
     --charcoal: #241E19; --charcoal-2: #332A22;
     --ember: #C1531B; --ember-dark: #9C4013;
     --cream: #FBF6EE; --card: #FFFFFF;
     --ink: #2B2420; --muted: #8A7F72; --line: #E7DFD2;
+    --green: #3F7D4C; --green-bg: #E4F1E6;
+    
+    /* カテゴリカラー */
     --c-hall: #2F6B7A; --bg-hall: #E4EEF1;
     --c-kitchen: #9C4013; --bg-kitchen: #F5E7DA;
     --c-special: #684596; --bg-special: #EDE7F3;
@@ -19,31 +22,37 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; background: #EFEAE1; color: var(--ink); font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; }
   
-  /* スマホアプリ風コンテナ（PCで見てもスマホサイズになるように） */
+  /* スマホアプリ風コンテナ */
   .app-container {
     max-width: 480px; margin: 0 auto; background: var(--cream);
     min-height: 100vh; position: relative; display: flex; flex-direction: column;
     box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow-x: hidden;
   }
   
-  /* 上部ヘッダー */
+  /* 上部ヘッダー（ATSシステムと統一） */
   header {
     background: linear-gradient(135deg, var(--charcoal), var(--charcoal-2));
-    color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
-    position: sticky; top: 0; z-index: 10;
+    color: #F2E9DC; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 10; border-bottom: 3px solid var(--ember);
   }
   header h1 { font-size: 16px; margin: 0; font-weight: 800; letter-spacing: 0.05em; }
+  .icon-btn { color: #F2E9DC; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
   
-  /* メインコンテンツ領域 */
   main { flex: 1; padding: 16px 16px 80px; overflow-y: auto; }
+  .sec-title { font-size: 14px; font-weight: 800; margin: 0 0 12px; border-bottom: 2px solid var(--ember); display: inline-block; padding-bottom: 4px; color: var(--charcoal); }
 
-  /* セクションタイトル */
-  .sec-title { font-size: 15px; font-weight: 800; margin: 0 0 12px; border-bottom: 2px solid var(--ember); display: inline-block; padding-bottom: 4px; }
+  /* 検索バー */
+  .search-bar {
+    background: #fff; border-radius: 8px; padding: 10px 14px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px; border: 1px solid var(--line);
+  }
+  .search-bar svg { stroke: var(--muted); width: 18px; height: 18px; }
+  .search-bar input { border: none; outline: none; width: 100%; font-size: 14px; background: transparent; color: var(--ink); }
 
-  /* ボトムナビゲーション */
+  /* ボトムナビゲーション（シンプルSVGアイコン） */
   .bottom-nav {
     position: fixed; bottom: 0; width: 100%; max-width: 480px;
-    background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(8px);
     border-top: 1px solid var(--line); display: flex; justify-content: space-around;
     padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); z-index: 100;
   }
@@ -51,103 +60,93 @@
     display: flex; flex-direction: column; align-items: center; gap: 4px;
     color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer; flex: 1;
   }
-  .nav-item.active { color: var(--ember); }
-  .nav-icon { font-size: 20px; }
-
-  /* 検索バー（アプリ風） */
-  .search-bar {
-    background: #fff; border-radius: 20px; padding: 10px 16px; margin-bottom: 20px;
-    display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid var(--line);
-  }
-  .search-bar input { border: none; outline: none; width: 100%; font-size: 14px; background: transparent; }
+  .nav-item.active { color: var(--charcoal); }
+  .nav-item svg { stroke: var(--muted); width: 22px; height: 22px; stroke-width: 2; fill: none; transition: 0.2s; }
+  .nav-item.active svg { stroke: var(--charcoal); fill: var(--charcoal); }
 
   /* カテゴリパネル（さがす画面用） */
-  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
   .cat-panel {
-    border-radius: 12px; padding: 16px; font-weight: 800; font-size: 14px;
-    display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: 0.2s;
+    border-radius: 8px; padding: 16px 12px; font-weight: 800; font-size: 13px;
+    display: flex; flex-direction: column; justify-content: space-between; min-height: 80px;
+    cursor: pointer; transition: 0.2s; border: 1px solid var(--line); background: #fff;
   }
-  .cat-panel:active { transform: scale(0.97); }
-  .cat-panel.hall { background: var(--bg-hall); color: var(--c-hall); border: 1px solid rgba(47,107,122,0.2); }
-  .cat-panel.kitchen { background: var(--bg-kitchen); color: var(--c-kitchen); border: 1px solid rgba(156,64,19,0.2); }
-  .cat-panel.special { background: var(--bg-special); color: var(--c-special); border: 1px solid rgba(104,69,150,0.2); }
-  .cat-panel.rule { background: var(--bg-rule); color: var(--c-rule); border: 1px solid rgba(63,125,76,0.2); }
+  .cat-panel:active { transform: scale(0.98); background: var(--cream); }
+  .cat-title { display: flex; align-items: center; justify-content: space-between; }
+  .cat-panel.hall { border-left: 4px solid var(--c-hall); color: var(--c-hall); }
+  .cat-panel.kitchen { border-left: 4px solid var(--c-kitchen); color: var(--c-kitchen); }
+  .cat-panel.special { border-left: 4px solid var(--c-special); color: var(--c-special); }
+  .cat-panel.rule { border-left: 4px solid var(--c-rule); color: var(--c-rule); }
 
   /* マニュアルカード */
   .m-card {
-    background: var(--card); border-radius: 12px; margin-bottom: 12px; padding: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04); border: 1px solid var(--line);
-    display: flex; gap: 12px; align-items: center; cursor: pointer;
+    background: var(--card); border-radius: 8px; margin-bottom: 10px; padding: 14px;
+    border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; cursor: pointer;
   }
-  .m-card:active { background: #f9f9f9; }
-  .m-thumb {
-    width: 64px; height: 64px; border-radius: 8px; background: var(--line); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 24px;
-  }
-  .m-info { flex: 1; }
-  .m-title { font-size: 14px; font-weight: 800; margin: 0 0 4px; line-height: 1.3; }
-  .m-meta { display: flex; gap: 6px; font-size: 10px; font-weight: 700; }
-  .tag { padding: 2px 6px; border-radius: 4px; background: var(--cream); color: var(--muted); }
+  .m-card:active { background: var(--cream); }
+  .m-meta { display: flex; gap: 8px; align-items: center; font-size: 10.5px; font-weight: 800; }
+  .badge { padding: 3px 8px; border-radius: 4px; }
+  .badge.hall { background: var(--bg-hall); color: var(--c-hall); }
+  .badge.kitchen { background: var(--bg-kitchen); color: var(--c-kitchen); }
+  .badge.special { background: var(--bg-special); color: var(--c-special); }
+  .badge.rule { background: var(--bg-rule); color: var(--c-rule); }
+  
+  .sub-tag { color: var(--muted); font-weight: 700; border-left: 1px solid var(--line); padding-left: 8px; }
+  .m-title { font-size: 14px; font-weight: 800; margin: 0; line-height: 1.4; color: var(--ink); }
 
   /* --------------------------------- */
   /* マニュアル閲覧ビュー（全画面オーバーレイ） */
   /* --------------------------------- */
   .viewer {
     position: fixed; inset: 0; background: #fff; z-index: 200;
-    display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.1, 0.8, 0.2, 1);
+    display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.25s ease-out;
   }
   .viewer.open { transform: translateY(0); }
   
   .v-header {
-    background: #fff; padding: 16px; border-bottom: 1px solid var(--line);
+    background: #fff; padding: 14px 16px; border-bottom: 1px solid var(--line);
     display: flex; justify-content: space-between; align-items: center;
   }
-  .v-close { font-size: 24px; color: var(--charcoal); cursor: pointer; font-weight: bold; }
+  .v-close { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; }
+  .v-close svg { stroke: var(--charcoal); width: 24px; height: 24px; stroke-width: 2; }
   
-  /* OJTスイッチ */
+  /* OJTスイッチ（ATSテイストに合わせる） */
   .ojt-switch {
-    display: flex; align-items: center; gap: 8px; background: var(--bg-kitchen);
-    padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; color: var(--c-kitchen);
+    display: flex; align-items: center; gap: 8px; background: var(--cream); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; color: var(--muted); transition: 0.2s;
   }
-  .toggle {
-    width: 34px; height: 20px; background: rgba(0,0,0,0.2); border-radius: 10px; position: relative;
-  }
-  .toggle::after {
-    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
-    background: #fff; border-radius: 50%; transition: 0.2s;
-  }
+  .toggle { width: 32px; height: 18px; background: #D1C7B8; border-radius: 10px; position: relative; transition: 0.2s; }
+  .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: 0.2s; }
+  .ojt-switch.active { background: var(--bg-kitchen); border-color: var(--c-kitchen); color: var(--c-kitchen); }
   .ojt-switch.active .toggle { background: var(--ember); }
   .ojt-switch.active .toggle::after { transform: translateX(14px); }
 
   .v-content { flex: 1; overflow-y: auto; padding-bottom: 40px; background: var(--cream); }
+  .v-title-area { padding: 20px 16px 16px; background: #fff; border-bottom: 1px solid var(--line); }
   
   /* ステップ形式のUI */
-  .step-card {
-    background: #fff; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 16px;
+  .step-card { background: #fff; margin-bottom: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
+  .step-photo-placeholder {
+    width: 100%; aspect-ratio: 16/9; background: #EFEAE1; border: 1px dashed #D1C7B8; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--muted); margin-bottom: 12px; font-weight: 700;
   }
-  .step-img {
-    width: 100%; aspect-ratio: 4/3; background: #E0D9D0; display: flex; align-items: center;
-    justify-content: center; font-size: 40px; color: #fff; margin-bottom: 12px;
-  }
-  .step-text { padding: 0 16px; }
-  .step-num { color: var(--ember); font-weight: 900; font-size: 12px; margin-bottom: 4px; }
-  .step-desc { font-size: 15px; font-weight: 700; line-height: 1.6; }
+  .step-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .step-num { color: var(--ember); font-weight: 900; font-size: 14px; font-family: sans-serif; }
+  .step-desc { font-size: 14.5px; font-weight: 700; line-height: 1.6; color: var(--ink); }
   
-  /* 指導のコツ（OJTモードONで表示） */
+  /* 指導のコツ */
   .ojt-tip {
-    margin: 12px 16px 0; padding: 12px; background: #FEF2F2; border-left: 4px solid #EF4444;
-    border-radius: 4px; font-size: 13px; font-weight: 700; color: #991B1B; display: none;
+    margin-top: 12px; padding: 12px; background: #FEF2F2; border-left: 3px solid var(--ember);
+    border-radius: 2px; font-size: 13px; font-weight: 700; color: var(--ember-dark); display: none;
   }
-  .viewer.ojt-on .ojt-tip { display: block; animation: fadeIn 0.3s; }
+  .viewer.ojt-on .ojt-tip { display: block; }
 
   /* 既読ボタン */
   .btn-read {
-    display: block; width: calc(100% - 32px); margin: 24px auto; background: var(--charcoal);
-    color: #fff; text-align: center; padding: 14px; border-radius: 8px; font-weight: 800; font-size: 15px; cursor: pointer;
+    display: flex; justify-content: center; align-items: center; gap: 6px; width: calc(100% - 32px); margin: 24px auto; background: var(--charcoal);
+    color: #fff; padding: 14px; border-radius: 6px; font-weight: 800; font-size: 14px; cursor: pointer; border: none;
   }
   .btn-read.done { background: var(--green); }
-  
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
@@ -155,65 +154,92 @@
 <div class="app-container">
   <header>
     <h1>凱旋門 マニュアル</h1>
-    <div style="font-size: 18px;">🔔</div>
+    <div class="icon-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+    </div>
   </header>
 
-  <main id="main-view">
-    <!-- コンテンツはJSで切り替え -->
-  </main>
+  <main id="main-view"></main>
 
   <div class="bottom-nav">
     <div class="nav-item active" onclick="switchTab('home', this)">
-      <div class="nav-icon">🏠</div>
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
       <span>ホーム</span>
     </div>
     <div class="nav-item" onclick="switchTab('explore', this)">
-      <div class="nav-icon">🔍</div>
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       <span>さがす</span>
     </div>
     <div class="nav-item" onclick="switchTab('bookmark', this)">
-      <div class="nav-icon">⭐</div>
+      <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
       <span>マイ学習</span>
     </div>
   </div>
 
-  <!-- マニュアル閲覧ビュー -->
   <div class="viewer" id="manual-viewer">
     <div class="v-header">
-      <div class="v-close" onclick="closeManual()">✕</div>
+      <div class="v-close" onclick="closeManual()">
+        <svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </div>
       <div class="ojt-switch" id="ojt-toggle" onclick="toggleOJT()">
-        指導モード <div class="toggle"></div>
+        指導者モード <div class="toggle"></div>
       </div>
     </div>
-    <div class="v-content" id="viewer-content">
-      <!-- JSで動的生成 -->
-    </div>
+    <div class="v-content" id="viewer-content"></div>
   </div>
 </div>
 
 <script>
-// マニュアルのサンプルデータ（Teachme Biz風のステップ構造）
+// 指定された階層に基づく実践的なマニュアルデータ
 const manuals = [
   {
-    id: 1, title: "お肉の提供手順と部位の説明", category: "hall", sub: "出し", icon: "🥩",
+    id: 1, category: "hall", catLabel: "①ホール", sub: "入口", title: "満席時のご案内とウェイティング管理",
     isNew: true, isBookmarked: true,
     steps: [
-      { imgIcon: "🔥", text: "提供前に必ず網の状態をチェックします。焦げが目立つ場合は「網をお取替えしましょうか？」と先にお声がけします。",
-        ojt: "新人スタッフは網交換のタイミングが掴めません。「お肉を出す前が最大のチャンス」と教えてあげてください。" },
-      { imgIcon: "🗣️", text: "お肉の正面をお客様に向け、「特選カルビでございます」とハッキリした声と笑顔で提供します。",
-        ojt: "声が小さい新人が多いので、ここでは『声のトーンをワントーン上げる』ことを意識させます。" },
-      { imgIcon: "⏱️", text: "厚切り肉や特殊部位の場合は「片面◯秒ずつ焼いていただくと美味しいです」とワンポイント添えます。",
-        ojt: "部位ごとの秒数一覧表（バックヤード掲示）を一緒に確認しながら教えると定着が早いです。" }
+      { text: "入口にお客様が見えたら、作業を止めてアイコンタクトを取り「いらっしゃいませ」と第一声を発します。",
+        ojt: "新人スタッフは作業に集中して入口に気づかないことが多いです。まずは『顔を上げる癖』をつけさせてください。" },
+      { text: "ウェイティングボードにお名前と人数、希望席（テーブル/座敷/どちらでも）を記入していただきます。",
+        ojt: "ボードのペンが書けなくなっていないか、インク切れの確認も指導事項に含めてください。" },
+      { text: "お待ちの人数と退店間近のお席の状況を見て、「おおよそ◯分ほどお待ちいただきます」と目安をお伝えします。",
+        ojt: "時間の目安は短く言いすぎないこと。クレームの原因になるため、少し長めに伝えるよう指導します。" }
     ]
   },
   {
-    id: 2, title: "服務規律・身だしなみチェック", category: "rule", sub: "服務規律", icon: "👔",
+    id: 2, category: "hall", catLabel: "①ホール", sub: "出し", title: "お肉の提供手順と部位の説明（基本編）",
     isNew: true, isBookmarked: false,
     steps: [
-      { imgIcon: "💇‍♀️", text: "出勤時、髪色が規定のトーンに収まっているか、長い髪は清潔に結ばれているか確認します。",
+      { text: "提供前に必ず網の状態を確認し、焦げが目立つ場合は「網をお取替えしましょうか？」と先にお声がけします。",
+        ojt: "新人は網交換のタイミングが掴めません。「お肉を出す前が最大のチャンス」と教えてあげてください。" },
+      { text: "お肉の正面（飾りが綺麗に見える向き）をお客様に向け、「特選カルビでございます」とハッキリした声で提供します。",
+        ojt: "声が小さい新人が多いので、ここでは『声のトーンをワントーン上げる』ことを意識させます。" }
+    ]
+  },
+  {
+    id: 3, category: "kitchen", catLabel: "②キッチン", sub: "洗い場", title: "ピーク時の洗い場の回し方・シンクの整理",
+    isNew: false, isBookmarked: false,
+    steps: [
+      { text: "下げられてきたバッシング類は、まず「網」「グラス」「食器（油汚れあり）」「食器（油汚れなし）」に分別します。",
+        ojt: "分別せずにシンクに放り込むと作業効率が著しく落ちます。最初の仕分けルールを徹底させてください。" },
+      { text: "食洗機にかける前に、必ず温水シャワーで表面の大きな汚れと油を予洗いします。",
+        ojt: "予洗いが甘いと食洗機内で油が回り、グラスが曇る原因になります。" }
+    ]
+  },
+  {
+    id: 4, category: "rule", catLabel: "④ルール", sub: "服務規律", title: "身だしなみ・ユニフォーム着用ルール",
+    isNew: false, isBookmarked: true,
+    steps: [
+      { text: "出勤時、髪色が規定のトーン（カラーチャート参照）に収まっているか、長い髪は清潔に結ばれているか確認します。",
         ojt: "注意しづらい部分ですが、ルールブックのカラーチャートを直接見せて客観的に指導してください。" },
-      { imgIcon: "💅", text: "爪は短く切りそろえ、ネイルやマニキュアは一切禁止です。",
+      { text: "爪は短く切りそろえ、ネイルやマニキュアは一切禁止です。名札は左胸の定位置にまっすぐつけます。",
         ojt: "出勤直前のチェックだけでなく、面接や採用オリエンテーションの段階で強く念押しする項目です。" }
+    ]
+  },
+  {
+    id: 5, category: "special", catLabel: "③特殊技能", sub: "集計", title: "夜間集計（レジ締め・日報入力）の手順",
+    isNew: true, isBookmarked: false,
+    steps: [
+      { text: "全レジのPOSから本日の売上（現金・クレジット・電子マネー）の精算レシートを出力します。", ojt: "操作ミスで『点検』ではなく『精算』を必ず押すよう徹底します。" },
+      { text: "現金をカウントし、ドロア内の釣銭基本金を残して、実売上金とレシートの金額が一致するか確認します。", ojt: "違算が出た場合は、必ず社員または店長に即時報告するルールを遵守させます。" }
     ]
   }
 ];
@@ -224,10 +250,14 @@ const viewerContent = document.getElementById("viewer-content");
 const ojtToggle = document.getElementById("ojt-toggle");
 let isOjtMode = false;
 
-// 画面レンダリング関数
 function renderHome() {
-  let html = `<div class="search-bar"><span style="font-size:18px;">🔍</span><input type="text" placeholder="キーワードで探す（例：レジ、網交換）"></div>`;
-  html += `<h2 class="sec-title">最近更新されたマニュアル</h2>`;
+  let html = `
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" placeholder="キーワード検索（例: 網交換, 洗い場）">
+    </div>
+    <h2 class="sec-title">新着・更新マニュアル</h2>
+  `;
   manuals.filter(m => m.isNew).forEach(m => html += createCard(m));
   mainView.innerHTML = html;
 }
@@ -236,10 +266,10 @@ function renderExplore() {
   let html = `
     <h2 class="sec-title">カテゴリから探す</h2>
     <div class="cat-grid">
-      <div class="cat-panel hall"><div>① ホール</div><span style="font-size:24px;">🏃‍♂️</span></div>
-      <div class="cat-panel kitchen"><div>② キッチン</div><span style="font-size:24px;">🔪</span></div>
-      <div class="cat-panel special"><div>③ 特殊技能</div><span style="font-size:24px;">📊</span></div>
-      <div class="cat-panel rule"><div>④ ルール</div><span style="font-size:24px;">📖</span></div>
+      <div class="cat-panel hall"><div class="cat-title"><span>①ホール</span></div><div style="font-size:11px;font-weight:700;margin-top:8px;">オンリー/入口/出し等</div></div>
+      <div class="cat-panel kitchen"><div class="cat-title"><span>②キッチン</span></div><div style="font-size:11px;font-weight:700;margin-top:8px;">センター/洗い場等</div></div>
+      <div class="cat-panel special"><div class="cat-title"><span>③特殊技能</span></div><div style="font-size:11px;font-weight:700;margin-top:8px;">集計/肉カット等</div></div>
+      <div class="cat-panel rule"><div class="cat-title"><span>④ルール</span></div><div style="font-size:11px;font-weight:700;margin-top:8px;">服務規律/姿勢等</div></div>
     </div>
     <h2 class="sec-title">すべてのマニュアル</h2>
   `;
@@ -258,16 +288,15 @@ function renderBookmark() {
 function createCard(m) {
   return `
     <div class="m-card" onclick="openManual(${m.id})">
-      <div class="m-thumb">${m.icon}</div>
-      <div class="m-info">
-        <div class="m-meta"><span class="tag">${m.sub}</span></div>
-        <h3 class="m-title">${m.title}</h3>
+      <div class="m-meta">
+        <span class="badge ${m.category}">${m.catLabel}</span>
+        <span class="sub-tag">${m.sub}</span>
       </div>
+      <h3 class="m-title">${m.title}</h3>
     </div>
   `;
 }
 
-// タブ切り替え
 function switchTab(tab, el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
@@ -277,27 +306,34 @@ function switchTab(tab, el) {
   window.scrollTo(0,0);
 }
 
-// マニュアル詳細ビュー
 function openManual(id) {
   const m = manuals.find(x => x.id === id);
-  let html = `<div style="padding: 20px 16px 12px;">
-                <span class="tag" style="background:#E4EEF1;color:#2F6B7A;margin-bottom:8px;display:inline-block;">${m.sub}</span>
-                <h2 style="margin:0;font-size:18px;font-weight:900;line-height:1.4;">${m.title}</h2>
-              </div>`;
+  let html = `
+    <div class="v-title-area">
+      <div class="m-meta" style="margin-bottom:10px;">
+        <span class="badge ${m.category}">${m.catLabel}</span>
+        <span class="sub-tag">${m.sub}</span>
+      </div>
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--ink);">${m.title}</h2>
+    </div>
+  `;
   
   m.steps.forEach((s, idx) => {
     html += `
       <div class="step-card">
-        <div class="step-img">${s.imgIcon}</div>
-        <div class="step-text">
-          <div class="step-num">STEP ${idx + 1}</div>
-          <div class="step-desc">${s.text}</div>
+        <div class="step-photo-placeholder">[ 写真が入ります ]</div>
+        <div class="step-header">
+          <span class="step-num">${idx + 1}.</span>
+          <span class="step-desc">${s.text}</span>
         </div>
-        <div class="ojt-tip">💡 教えるポイント<br>${s.ojt}</div>
+        <div class="ojt-tip">💡 <b>指導のポイント</b><br>${s.ojt}</div>
       </div>
     `;
   });
-  html += `<div class="btn-read" onclick="this.classList.add('done'); this.innerText='確認しました ✓';">確認しました</div>`;
+  html += `
+    <button class="btn-read" onclick="this.classList.add('done'); this.innerHTML='<svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'3\\' width=\\'18\\' height=\\'18\\'><polyline points=\\'20 6 9 17 4 12\\'></polyline></svg> 確認しました';">
+      確認しました
+    </button>`;
   
   viewerContent.innerHTML = html;
   viewer.classList.add("open");
@@ -305,7 +341,6 @@ function openManual(id) {
 
 function closeManual() {
   viewer.classList.remove("open");
-  // 閉じた時にOJTモードをリセットする
   isOjtMode = false;
   viewer.classList.remove("ojt-on");
   ojtToggle.classList.remove("active");

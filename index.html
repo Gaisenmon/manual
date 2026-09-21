@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>凱旋門 マニュアルアプリ</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
 <style>
   :root {
     --charcoal: #241E19; --charcoal-2: #332A22;
@@ -15,15 +18,9 @@
     --c-special: #684596; --c-rule: #3F7D4C;
   }
   
-  /* ダークモード時のカラーパレット上書き */
   body.dark-mode {
-    --cream: #121212;
-    --card: #1E1E1E;
-    --ink: #E0DCD5;
-    --muted: #8A8A8A;
-    --line: #333333;
-    --charcoal: #000000;
-    --charcoal-2: #111111;
+    --cream: #121212; --card: #1E1E1E; --ink: #E0DCD5;
+    --muted: #8A8A8A; --line: #333333; --charcoal: #000000; --charcoal-2: #111111;
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -32,10 +29,14 @@
   .app-container { max-width: 480px; margin: 0 auto; background: var(--cream); min-height: 100vh; position: relative; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow-x: hidden; }
   header { background: linear-gradient(135deg, var(--charcoal), var(--charcoal-2)); color: #F2E9DC; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-bottom: 3px solid var(--ember); }
   header h1 { font-size: 16px; margin: 0; font-weight: 800; letter-spacing: 0.05em; }
+  
+  .header-actions { display: flex; gap: 12px; align-items: center; }
+  .btn-reload { background: #394C58; border: none; border-radius: 4px; padding: 5px 10px; color: #fff; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: 0.2s; }
+  .btn-reload:active { transform: scale(0.95); background: #2B3A44; }
+
   main { flex: 1; padding: 16px 16px 80px; overflow-y: auto; }
   .sec-title { font-size: 14px; font-weight: 800; margin: 0 0 12px; border-bottom: 2px solid var(--ember); display: inline-block; padding-bottom: 4px; color: var(--ink); }
 
-  /* ボトムナビゲーション */
   .bottom-nav { position: fixed; bottom: 0; width: 100%; max-width: 480px; background: var(--card); border-top: 1px solid var(--line); display: flex; justify-content: space-around; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); z-index: 100; transition: 0.2s; }
   .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer; flex: 1; }
   .nav-item.active { color: var(--ink); }
@@ -43,7 +44,6 @@
   .nav-item.active svg { stroke: var(--ink); fill: var(--ink); }
   body.dark-mode .nav-item.active svg { fill: transparent; }
 
-  /* ツリー型メニュー */
   .tree-cat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
   .tree-cat-head { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 800; font-size: 15px; background: var(--card); }
   .tree-cat-head svg { width: 18px; height: 18px; stroke: var(--muted); transition: transform 0.2s; }
@@ -62,19 +62,16 @@
   .manual-item-title { font-size: 13.5px; font-weight: 800; color: var(--ink); line-height: 1.4; transition: 0.2s; }
   .manual-item-sub { font-size: 11px; color: var(--muted); font-weight: normal; margin-left: 6px; }
 
-  /* 検索バー */
   .search-box { display: flex; align-items: center; background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; transition: 0.2s; }
   .search-box:focus-within { border-color: var(--ember); }
   .search-box svg { stroke: var(--muted); width: 18px; height: 18px; flex-shrink: 0; margin-right: 8px; }
   .search-box input { border: none; background: transparent; font-size: 14px; width: 100%; outline: none; color: var(--ink); }
 
-  /* FAB */
   .fab { position: fixed; right: 20px; bottom: 80px; width: 56px; height: 56px; background: var(--ember); color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(193, 83, 27, 0.4); cursor: pointer; z-index: 90; transition: transform 0.2s; }
   .fab.show { display: flex; }
   .fab:active { transform: scale(0.95); }
   .fab svg { width: 28px; height: 28px; stroke: #fff; stroke-width: 2; }
 
-  /* ビューワー / エディタ */
   .viewer, .editor { position: fixed; inset: 0; background: var(--card); z-index: 200; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.25s ease-out; }
   .viewer.open, .editor.open { transform: translateY(0); }
   .v-header { background: var(--card); padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
@@ -98,8 +95,6 @@
   .step-desc { font-size: 14.5px; font-weight: 700; line-height: 1.6; flex: 1; white-space: pre-wrap; transition: 0.2s; color: var(--ink); }
   .ojt-tip { margin-top: 12px; padding: 12px; background: rgba(193,83,27,0.1); border-left: 3px solid var(--ember); border-radius: 2px; font-size: 13px; font-weight: 700; color: var(--ember); white-space: pre-wrap; }
   
-  .step-media { width: 100%; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 8px; max-height: 250px; object-fit: cover; background: #000; }
-  
   .check-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
   .check-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--ember); cursor: pointer; }
   .check-item label { font-size: 14.5px; font-weight: 700; line-height: 1.5; cursor: pointer; transition: 0.2s; color: var(--ink); }
@@ -112,7 +107,6 @@
   details.manual-accordion[open] summary::after { transform: rotate(180deg); }
   .accordion-content { padding: 0 16px 16px; font-size: 14px; line-height: 1.6; color: var(--ink); border-top: 1px dashed var(--line); margin-top: 4px; padding-top: 12px; white-space: pre-wrap; }
 
-  /* エディタ */
   .form-group { padding: 16px; background: var(--card); border-bottom: 1px solid var(--line); margin-bottom: 12px; }
   .form-label { font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 8px; display: block; }
   .form-input, .form-select, .form-textarea { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; background: var(--cream); color: var(--ink); font-family: inherit; margin-bottom: 12px; }
@@ -126,11 +120,9 @@
   .btn-add-step:active { border-color: var(--ember); color: var(--ember); }
   .btn-save { background: var(--ember); color: #fff; border: none; font-weight: 800; font-size: 14px; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
 
-  /* 設定カード用 */
   .settings-card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; margin-bottom: 12px; transition: 0.2s; }
   .settings-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .settings-label { font-size: 14.5px; font-weight: 800; color: var(--ink); transition: 0.2s; }
-  .settings-desc { font-size: 12px; color: var(--muted); margin-top: 4px; }
   .btn-toggle { padding: 8px 16px; font-size: 13px; font-weight: 800; border-radius: 20px; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink); transition: 0.2s; white-space: nowrap; }
   .btn-toggle.active { background: var(--ember); color: #fff; border-color: var(--ember); }
   
@@ -149,7 +141,14 @@
 <div class="app-container">
   <header>
     <h1>凱旋門 マニュアル</h1>
-    <div style="font-size: 11px; color: #C8BBA8;">同期中 <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#5EA36B;margin-left:4px;"></span></div>
+    <div class="header-actions">
+      <div style="font-size: 11px; color: #C8BBA8; display:flex; align-items:center;">
+        同期 <span id="sync-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#DC2626;margin-left:4px;"></span>
+      </div>
+      <button class="btn-reload" onclick="manualReload()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="margin-right:2px;"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 1 0 2.81-6.63L21 8"></path></svg>更新
+      </button>
+    </div>
   </header>
   
   <main id="main-view"></main>
@@ -214,28 +213,32 @@
 </div>
 
 <script>
-const HIERARCHY = {
-  "hall": { label: "①ホール", color: "#2F6B7A", subs: ["オンリー", "入口", "出し", "ドリンカー", "運び", "ラスト"] },
-  "kitchen": { label: "②キッチン", color: "#9C4013", subs: ["センター", "ファイヤー", "バック", "刺し場", "洗い場"] },
-  "special": { label: "③特殊技能", color: "#684596", subs: ["集計", "肉カット", "予約管理"] },
-  "rule": { label: "④ルール", color: "#3F7D4C", subs: ["服務規律", "姿勢のルール"] }
+// --- Firebase 連携設定 (ATSシステムと同じデータベースに接続) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDzUmUoZsTpV8PlTU-qRyDiByOImpOc_Kk",
+  authDomain: "akamo-staff-management.firebaseapp.com",
+  databaseURL: "https://akamo-staff-management-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "akamo-staff-management",
+  storageBucket: "akamo-staff-management.firebasestorage.app",
+  messagingSenderId: "249759074777",
+  appId: "1:249759074777:web:4b9b5332d22dae182bf1c8"
 };
 
-let manuals = [
-  { id: 1, category: "hall", sub: "出し", title: "お肉の提供手順（基本）", isBookmarked: false,
-    steps: [
-      { type: "text", text: "提供前に網の状態を確認し、焦げがあれば「網をお取替えしましょうか？」と声をかける。", ojt: "新人は網交換のタイミングが掴めません。「お肉を出す前」と教えてあげて。" },
-      { type: "checklist", items: ["ハッキリとした声で部位名を伝える", "笑顔を添える"], ojt: "" },
-      { type: "accordion", title: "※ 厚切り肉や特殊部位の提供時", text: "「片面45秒ずつ焼いていただくと美味しく召し上がれます」等のワンポイントアドバイスを添える。", ojt: "" }
-    ]
-  },
-  { id: 2, category: "rule", sub: "服務規律", title: "身だしなみの基本ルール", isBookmarked: true,
-    steps: [
-      { type: "text", text: "出勤時、髪の毛は必ずネットに入れ、前髪が目にかからないようにピンで留めること。", ojt: "" }
-    ]
-  }
-];
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+const manualsRef = db.ref('stores/gaisenmon/manuals');
 
+// 接続ステータスの監視
+db.ref('.info/connected').on('value', function(snap) {
+  const dot = document.getElementById('sync-dot');
+  if (snap.val() === true) { dot.style.background = '#5EA36B'; } // 緑色
+  else { dot.style.background = '#DC2626'; } // 赤色
+});
+
+// --- マニュアルデータと設定の永続化 ---
+let manuals = []; 
 let isAdmin = false;
 let currentManualId = null;
 const mainView = document.getElementById("main-view");
@@ -243,14 +246,62 @@ const viewer = document.getElementById("manual-viewer");
 const editor = document.getElementById("manual-editor");
 let editSteps = [];
 
-// --- 設定・状態の永続化 (LocalStorage) ---
 let isDarkMode = localStorage.getItem('gm_darkmode') === 'true';
 let currentFontSize = localStorage.getItem('gm_fontsize') || 'normal';
 let viewHistory = JSON.parse(localStorage.getItem('gm_history') || '[]');
 let isNotificationsEnabled = localStorage.getItem('gm_notifications') === 'true';
+let bookmarkedIds = JSON.parse(localStorage.getItem('gm_bookmarks') || '[]');
 
-// 前回のマニュアル件数を記憶（簡易的な更新通知用）
-let previousManualCount = manuals.length;
+const HIERARCHY = {
+  "hall": { label: "①ホール", color: "#2F6B7A", subs: ["オンリー", "入口", "出し", "ドリンカー", "運び", "ラスト"] },
+  "kitchen": { label: "②キッチン", color: "#9C4013", subs: ["センター", "ファイヤー", "バック", "刺し場", "洗い場"] },
+  "special": { label: "③特殊技能", color: "#684596", subs: ["集計", "肉カット", "予約管理"] },
+  "rule": { label: "④ルール", color: "#3F7D4C", subs: ["服務規律", "姿勢のルール"] }
+};
+
+// --- Firebaseからのデータ読み込みとリアルタイム監視 ---
+let isInitialLoad = true;
+manualsRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+        const newManuals = (Array.isArray(data) ? data : Object.values(data)).filter(m => m !== null);
+        if (!isInitialLoad && newManuals.length > manuals.length) {
+            notifyUpdate("新しいマニュアル");
+        }
+        manuals = newManuals;
+    } else {
+        manuals = [];
+        const defaultData = [
+          { id: 1, category: "hall", sub: "出し", title: "お肉の提供手順（基本）", steps: [{ type: "text", text: "提供前に網の状態を確認し、焦げがあれば「網をお取替えしましょうか？」と声をかける。", ojt: "新人は網交換のタイミングが掴めません。「お肉を出す前」と教えてあげて。" }] }
+        ];
+        manualsRef.set(defaultData);
+        manuals = defaultData;
+    }
+    isInitialLoad = false;
+    refreshCurrentView();
+});
+
+// 手動リロード（更新）機能
+function manualReload() {
+  manualsRef.once('value').then((snapshot) => {
+    const data = snapshot.val();
+    if(data) { manuals = (Array.isArray(data) ? data : Object.values(data)).filter(m => m !== null); }
+    refreshCurrentView();
+    const t = document.createElement("div");
+    t.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:#fff;padding:12px 24px;border-radius:30px;font-weight:bold;font-size:13px;z-index:9999;";
+    t.innerText = "最新データに更新しました";
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 1500);
+  });
+}
+
+function refreshCurrentView() {
+  const activeTab = document.querySelector('.nav-item.active span').textContent;
+  if (activeTab === 'さがす') renderExplore();
+  else if (activeTab === 'マイ学習') renderBookmark();
+  else if (activeTab === '設定') renderSettings();
+  else if (activeTab === 'ホーム') renderHome();
+}
 
 function applyUserSettings() {
   document.body.classList.toggle('dark-mode', isDarkMode);
@@ -259,43 +310,8 @@ function applyUserSettings() {
 }
 applyUserSettings(); 
 
-function setDarkMode(enable) {
-  isDarkMode = enable;
-  localStorage.setItem('gm_darkmode', isDarkMode);
-  applyUserSettings();
-  renderSettings(); 
-}
-
-function setFontSize(size) {
-  currentFontSize = size;
-  localStorage.setItem('gm_fontsize', size);
-  applyUserSettings();
-  renderSettings(); 
-}
-
-function toggleNotifications() {
-  if (!isNotificationsEnabled) {
-    if (!("Notification" in window)) {
-      alert("お使いのブラウザはプッシュ通知に対応していません。");
-      return;
-    }
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        isNotificationsEnabled = true;
-        localStorage.setItem('gm_notifications', 'true');
-        renderSettings();
-        new Notification("通知がオンになりました", { body: "新しいマニュアルが追加された際にお知らせします。" });
-      } else {
-        alert("通知がブロックされています。ブラウザの設定から許可してください。");
-      }
-    });
-  } else {
-    isNotificationsEnabled = false;
-    localStorage.setItem('gm_notifications', 'false');
-    renderSettings();
-  }
-}
-
+function setDarkMode(enable) { isDarkMode = enable; localStorage.setItem('gm_darkmode', isDarkMode); applyUserSettings(); renderSettings(); }
+function setFontSize(size) { currentFontSize = size; localStorage.setItem('gm_fontsize', size); applyUserSettings(); renderSettings(); }
 function addToHistory(id) {
   viewHistory = viewHistory.filter(v => v !== id);
   viewHistory.unshift(id);
@@ -303,18 +319,31 @@ function addToHistory(id) {
   localStorage.setItem('gm_history', JSON.stringify(viewHistory));
 }
 
+function toggleNotifications() {
+  if (!isNotificationsEnabled) {
+    if (!("Notification" in window)) { alert("お使いのブラウザはプッシュ通知に対応していません。"); return; }
+    Notification.requestPermission().then(permission => {
+      if (permission === "granted") {
+        isNotificationsEnabled = true; localStorage.setItem('gm_notifications', 'true');
+        renderSettings();
+        new Notification("通知オン", { body: "アプリ内通知をオンにしました。" });
+      } else { alert("通知がブロックされています。"); }
+    });
+  } else {
+    isNotificationsEnabled = false; localStorage.setItem('gm_notifications', 'false'); renderSettings();
+  }
+}
+
 function toggleAdminMode() {
   if (!isAdmin) {
     const pwd = prompt("管理者パスワードを入力してください:");
     if (pwd === "gaisenmon2026") {
-      isAdmin = true;
-      document.body.classList.add("is-admin");
+      isAdmin = true; document.body.classList.add("is-admin");
       document.getElementById("main-fab").classList.add("show");
       renderSettings();
     } else if (pwd !== null) { alert("パスワードが違います。"); }
   } else {
-    isAdmin = false;
-    document.body.classList.remove("is-admin");
+    isAdmin = false; document.body.classList.remove("is-admin");
     document.getElementById("main-fab").classList.remove("show");
     renderSettings();
   }
@@ -324,10 +353,14 @@ function toggleAdminMode() {
 function renderHome() {
   let html = `<h2 class="sec-title">ホーム</h2>`;
   
-  html += `<div style="font-weight:800;font-size:13.5px;color:var(--ink);margin:20px 0 10px;">🕒 最近見たマニュアル</div>`;
-  
+  html += `
+    <div style="font-weight:800;font-size:13.5px;color:var(--ink);margin:20px 0 10px; display:flex; align-items:center; gap:6px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      最近見たマニュアル
+    </div>`;
+    
   if (viewHistory.length === 0) {
-    html += `<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;background:var(--card);border:1px dashed var(--line);border-radius:8px;">まだ閲覧履歴はありません。<br>マニュアルを開くとここに表示されます。</div>`;
+    html += `<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;background:var(--card);border:1px dashed var(--line);border-radius:8px;">閲覧履歴はありません。</div>`;
   } else {
     viewHistory.forEach(id => {
       const m = manuals.find(x => x.id === id);
@@ -340,109 +373,56 @@ function renderHome() {
       }
     });
   }
-  
   mainView.innerHTML = html;
 }
 
 function renderSettings() {
-  let html = `<h2 class="sec-title">設定</h2>`;
-  
-  // 外観設定
-  html += `
+  mainView.innerHTML = `
+    <h2 class="sec-title">設定</h2>
     <div class="settings-card">
-      <div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:4px;">外観と読みやすさ</div>
-      
+      <div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:4px;">アクセシビリティ</div>
       <div class="settings-item">
-        <div>
-          <div class="settings-label">ダークモード</div>
-          <div class="settings-desc">画面を黒ベースにして眩しさを抑えます</div>
-        </div>
-        <button class="btn-toggle ${isDarkMode ? 'active' : ''}" onclick="setDarkMode(${!isDarkMode})">
-          ${isDarkMode ? 'オン' : 'オフ'}
-        </button>
+        <div><div class="settings-label">ダークモード</div></div>
+        <button class="btn-toggle ${isDarkMode ? 'active' : ''}" onclick="setDarkMode(${!isDarkMode})">${isDarkMode ? 'オフにする' : 'オンにする'}</button>
       </div>
-      
       <div class="settings-item" style="border-top:1px dashed var(--line); padding-top:16px;">
-        <div>
-          <div class="settings-label">文字サイズ</div>
-          <div class="settings-desc">本文やタイトルの大きさを変更します</div>
-        </div>
+        <div><div class="settings-label">文字サイズ</div></div>
         <div class="btn-group">
           <button class="${currentFontSize === 'normal' ? 'active' : ''}" onclick="setFontSize('normal')">標準</button>
           <button class="${currentFontSize === 'large' ? 'active' : ''}" onclick="setFontSize('large')">大きめ</button>
         </div>
       </div>
     </div>
-  `;
-
-  // 通知設定
-  html += `
     <div class="settings-card">
-      <div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:4px;">お知らせ</div>
+      <div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:4px;">通知</div>
       <div class="settings-item">
-        <div>
-          <div class="settings-label">プッシュ通知</div>
-          <div class="settings-desc">新しいマニュアルの追加や更新をお知らせします</div>
-        </div>
-        <button class="btn-toggle ${isNotificationsEnabled ? 'active' : ''}" onclick="toggleNotifications()">
-          ${isNotificationsEnabled ? 'オン' : 'オフ'}
-        </button>
+        <div><div class="settings-label">アプリ内通知</div></div>
+        <button class="btn-toggle ${isNotificationsEnabled ? 'active' : ''}" onclick="toggleNotifications()">${isNotificationsEnabled ? 'オフにする' : 'オンにする'}</button>
       </div>
     </div>
-  `;
-
-  // 管理者モード切替
-  html += `
     <div class="settings-card">
       <div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:4px;">システム管理</div>
       <div class="settings-item">
-        <div>
-          <div class="settings-label">管理者モード</div>
-          <div class="settings-desc">マニュアルの作成・編集・削除機能</div>
-        </div>
-        <button class="btn-toggle ${isAdmin ? 'active' : ''}" onclick="toggleAdminMode()">
-          ${isAdmin ? '有効 (解除)' : '無効 (PW入力)'}
-        </button>
+        <div><div class="settings-label">管理者モード</div></div>
+        <button class="btn-toggle ${isAdmin ? 'active' : ''}" onclick="toggleAdminMode()">${isAdmin ? 'オフにする' : 'オンにする(PW入力)'}</button>
       </div>
     </div>
   `;
-  mainView.innerHTML = html;
 }
 
-// ----------------------------------------------------------------------
-// さがす・マイ学習・ビューワー・エディタの処理
-// ----------------------------------------------------------------------
 function generateTreeHtml(sourceManuals) {
   let html = "";
   Object.keys(HIERARCHY).forEach(key => {
     const cat = HIERARCHY[key];
     const catManuals = sourceManuals.filter(m => m.category === key);
     if(catManuals.length === 0) return;
-    html += `
-      <div class="tree-cat" onclick="toggleTree(this, event)">
-        <div class="tree-cat-head" style="border-left: 4px solid ${cat.color};">
-          <span>${cat.label}</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </div>
-        <div class="tree-cat-body">
-    `;
+    html += `<div class="tree-cat" onclick="toggleTree(this, event)"><div class="tree-cat-head" style="border-left: 4px solid ${cat.color};"><span>${cat.label}</span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-cat-body">`;
     cat.subs.forEach(sub => {
       const subManuals = catManuals.filter(m => m.sub === sub);
       if(subManuals.length === 0) return;
-      html += `
-        <div class="tree-sub" onclick="toggleTree(this, event)">
-          <div class="tree-sub-head">
-            <span>${sub} <span style="font-size:11px;color:var(--muted);">(${subManuals.length})</span></span>
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </div>
-          <div class="tree-sub-body">
-      `;
+      html += `<div class="tree-sub" onclick="toggleTree(this, event)"><div class="tree-sub-head"><span>${sub} <span style="font-size:11px;color:var(--muted);">(${subManuals.length})</span></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-sub-body">`;
       subManuals.forEach(m => {
-        html += `
-          <div class="manual-item" onclick="openManual(${m.id})">
-            <div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
-            <div class="manual-item-title">${m.title}</div>
-          </div>`;
+        html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div><div class="manual-item-title">${m.title}</div></div>`;
       });
       html += `</div></div>`;
     });
@@ -455,26 +435,11 @@ function handleSearch(keyword) {
   const container = document.getElementById("explore-content");
   if (!keyword.trim()) { container.innerHTML = generateTreeHtml(manuals); return; }
   const kw = keyword.toLowerCase();
-  const hits = manuals.filter(m => {
-    if (m.title.toLowerCase().includes(kw)) return true;
-    if (m.sub.toLowerCase().includes(kw)) return true;
-    return m.steps.some(s => {
-      if (s.type === 'text' && s.text && s.text.toLowerCase().includes(kw)) return true;
-      if (s.type === 'checklist' && s.items && s.items.some(i => i.toLowerCase().includes(kw))) return true;
-      if (s.type === 'accordion' && ((s.title && s.title.toLowerCase().includes(kw)) || (s.text && s.text.toLowerCase().includes(kw)))) return true;
-      return false;
-    });
-  });
-  if (hits.length === 0) {
-    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">一致するマニュアルは見つかりませんでした。</div>`; return;
-  }
+  const hits = manuals.filter(m => m.title.toLowerCase().includes(kw) || m.sub.toLowerCase().includes(kw) || m.steps.some(s => (s.type === 'text' && s.text && s.text.toLowerCase().includes(kw))));
+  if (hits.length === 0) { container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">見つかりませんでした。</div>`; return; }
   let html = `<div style="font-size:12px;font-weight:800;color:var(--ember);margin-bottom:12px;">検索結果: ${hits.length}件</div>`;
   hits.forEach(m => {
-     html += `
-        <div class="manual-item" onclick="openManual(${m.id})">
-          <div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
-          <div class="manual-item-title">${m.title} <span class="manual-item-sub">(${HIERARCHY[m.category].label.replace(/[①-④]/g, '')} > ${m.sub})</span></div>
-        </div>`;
+     html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div><div class="manual-item-title">${m.title} <span class="manual-item-sub">(${m.sub})</span></div></div>`;
   });
   container.innerHTML = html;
 }
@@ -482,26 +447,19 @@ function handleSearch(keyword) {
 function renderExplore() {
   mainView.innerHTML = `
     <h2 class="sec-title">マニュアルを探す</h2>
-    <div class="search-box">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input type="text" placeholder="キーワードで検索" oninput="handleSearch(this.value)">
-    </div>
+    <div class="search-box"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input type="text" placeholder="キーワードで検索" oninput="handleSearch(this.value)"></div>
     <div id="explore-content">${generateTreeHtml(manuals)}</div>
   `;
 }
 
 function renderBookmark() {
-  const bkmks = manuals.filter(m => m.isBookmarked);
+  const bkmks = manuals.filter(m => bookmarkedIds.includes(m.id));
   let html = `<h2 class="sec-title">マイ学習（お気に入り）</h2>`;
   if(bkmks.length === 0) {
     html += `<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;background:var(--card);border-radius:8px;">お気に入りに登録されたマニュアルはありません。</div>`;
   } else {
     bkmks.forEach(m => {
-      html += `
-        <div class="manual-item" onclick="openManual(${m.id})">
-          <div class="manual-item-icon"><svg viewBox="0 0 24 24" fill="var(--ember)" stroke="var(--ember)" stroke-width="2" width="18" height="18"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></div>
-          <div class="manual-item-title">${m.title}</div>
-        </div>`;
+      html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" fill="var(--ember)" stroke="var(--ember)" stroke-width="2" width="18" height="18"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></div><div class="manual-item-title">${m.title}</div></div>`;
     });
   }
   mainView.innerHTML = html;
@@ -510,24 +468,22 @@ function renderBookmark() {
 function switchTab(tab, el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
-  if(tab === 'explore') renderExplore();
-  else if(tab === 'bookmark') renderBookmark();
-  else if(tab === 'settings') renderSettings();
-  else renderHome();
+  if(tab === 'explore') renderExplore(); else if(tab === 'bookmark') renderBookmark(); else if(tab === 'settings') renderSettings(); else renderHome();
   window.scrollTo(0,0);
 }
 
-function toggleTree(el, ev) {
-  if (ev.target.closest('.manual-item')) return;
-  ev.stopPropagation();
-  el.classList.toggle('open');
-}
+function toggleTree(el, ev) { if (ev.target.closest('.manual-item')) return; ev.stopPropagation(); el.classList.toggle('open'); }
 
 function toggleBookmark() {
-  const m = manuals.find(x => x.id === currentManualId);
-  if (!m) return;
-  m.isBookmarked = !m.isBookmarked;
-  document.getElementById("btn-bookmark").classList.toggle("active", m.isBookmarked);
+  if (!currentManualId) return;
+  if (bookmarkedIds.includes(currentManualId)) {
+    bookmarkedIds = bookmarkedIds.filter(id => id !== currentManualId);
+  } else {
+    bookmarkedIds.push(currentManualId);
+  }
+  localStorage.setItem('gm_bookmarks', JSON.stringify(bookmarkedIds));
+  
+  document.getElementById("btn-bookmark").classList.toggle("active", bookmarkedIds.includes(currentManualId));
   const activeTab = document.querySelector('.nav-item.active span').textContent;
   if (activeTab === 'マイ学習') renderBookmark();
 }
@@ -538,30 +494,18 @@ function openManual(id) {
   const m = manuals.find(x => x.id === id);
   const catLabel = HIERARCHY[m.category].label;
   
-  document.getElementById("btn-bookmark").classList.toggle("active", !!m.isBookmarked);
+  document.getElementById("btn-bookmark").classList.toggle("active", bookmarkedIds.includes(id));
   
-  let html = `
-    <div class="v-title-area">
-      <div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:8px;">${catLabel} ＞ ${m.sub}</div>
-      <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--ink);">${m.title}</h2>
-    </div>
-  `;
-  
+  let html = `<div class="v-title-area"><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:8px;">${catLabel} ＞ ${m.sub}</div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--ink);">${m.title}</h2></div>`;
   m.steps.forEach((s, idx) => {
     let contentHtml = "";
     let stepNumberHtml = `<span class="step-num">${idx + 1}.</span>`;
-    if (s.type === "text") {
-      contentHtml = `<div class="step-header">${stepNumberHtml}<span class="step-desc">${s.text}</span></div>`;
-    }
+    if (s.type === "text") { contentHtml = `<div class="step-header">${stepNumberHtml}<span class="step-desc">${s.text}</span></div>`; }
     else if (s.type === "checklist") {
       contentHtml = `<div class="step-header" style="margin-bottom:8px;">${stepNumberHtml}<span class="step-desc" style="color:var(--muted);">チェックリスト</span></div>`;
-      (s.items || []).forEach((it, i) => {
-        contentHtml += `<div class="check-item"><input type="checkbox" id="chk-${idx}-${i}"><label for="chk-${idx}-${i}">${it}</label></div>`;
-      });
+      (s.items || []).forEach((it, i) => { contentHtml += `<div class="check-item"><input type="checkbox" id="chk-${idx}-${i}"><label for="chk-${idx}-${i}">${it}</label></div>`; });
     }
-    else if (s.type === "accordion") {
-      contentHtml = `<details class="manual-accordion"><summary>${s.title || "さらに詳しく見る"}</summary><div class="accordion-content">${s.text}</div></details>`;
-    }
+    else if (s.type === "accordion") { contentHtml = `<details class="manual-accordion"><summary>${s.title || "さらに詳しく見る"}</summary><div class="accordion-content">${s.text}</div></details>`; }
     html += `<div class="step-card">${contentHtml}${s.ojt ? `<div class="ojt-tip">💡 <b>指導のポイント</b><br>${s.ojt}</div>` : ''}</div>`;
   });
   document.getElementById("viewer-content").innerHTML = html;
@@ -569,11 +513,8 @@ function openManual(id) {
 }
 
 function closeManual() { 
-  viewer.classList.remove("open"); 
-  currentManualId = null;
-  if(document.querySelector('.nav-item.active span').textContent === 'ホーム') {
-    renderHome();
-  }
+  viewer.classList.remove("open"); currentManualId = null;
+  if(document.querySelector('.nav-item.active span').textContent === 'ホーム') { renderHome(); }
 }
 
 // --- エディタ ---
@@ -588,14 +529,12 @@ function openEditor(id = null) {
     const m = manuals.find(x => x.id === id);
     document.getElementById("edit-title").value = m.title;
     document.getElementById("edit-cat").value = m.category;
-    updateSubCats();
-    document.getElementById("edit-sub").value = m.sub;
+    updateSubCats(); document.getElementById("edit-sub").value = m.sub;
     editSteps = JSON.parse(JSON.stringify(m.steps));
   } else {
     document.getElementById("edit-title").value = "";
     document.getElementById("edit-cat").value = "hall";
-    updateSubCats();
-    editSteps = [{ type: "text", text: "", ojt: "" }];
+    updateSubCats(); editSteps = [{ type: "text", text: "", ojt: "" }];
   }
   renderEditorSteps();
   editor.classList.add("open");
@@ -619,21 +558,14 @@ function renderEditorSteps() {
   const container = document.getElementById("editor-steps-container");
   container.innerHTML = editSteps.map((step, idx) => {
     let inputSection = "";
-    if (step.type === "text") {
-      inputSection = `<label class="form-label">手順のテキスト</label><textarea class="form-textarea" placeholder="手順を記入" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>`;
-    } 
+    if (step.type === "text") { inputSection = `<label class="form-label">手順のテキスト</label><textarea class="form-textarea" placeholder="手順を記入" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>`; } 
     else if (step.type === "checklist") {
       inputSection = `<label class="form-label">チェックリストの項目</label>`;
-      (step.items || []).forEach((it, i) => {
-        inputSection += `<div class="edit-chk-row"><input type="text" class="form-input" style="margin:0;" placeholder="項目を入力" value="${it}" onchange="updateCheckItem(${idx}, ${i}, this.value)"><button class="btn-toggle" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;" onclick="removeCheckItem(${idx}, ${i})">✕</button></div>`;
-      });
+      (step.items || []).forEach((it, i) => { inputSection += `<div class="edit-chk-row" style="display:flex;gap:8px;margin-bottom:8px;"><input type="text" class="form-input" style="margin:0;" placeholder="項目を入力" value="${it}" onchange="updateCheckItem(${idx}, ${i}, this.value)"><button style="padding:0;width:32px;border:none;background:#FEE2E2;color:#DC2626;border-radius:6px;cursor:pointer;" onclick="removeCheckItem(${idx}, ${i})">✕</button></div>`; });
       inputSection += `<button class="btn-add-step" style="width:100%; margin:4px 0 12px; padding:8px;" onclick="addCheckItem(${idx})">＋ 項目を追加</button>`;
     }
-    else if (step.type === "accordion") {
-      inputSection = `<label class="form-label">折りたたみのタイトル</label><input type="text" class="form-input" placeholder="例: ※イレギュラー時の対応" value="${step.title || ""}" onchange="editSteps[${idx}].title = this.value"><label class="form-label">詳細テキスト</label><textarea class="form-textarea" placeholder="詳細を記入" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>`;
-    }
-    const blockNames = { "text": "テキスト", "checklist": "チェックリスト", "accordion": "折りたたみ" };
-    return `<div class="edit-step-card"><div class="step-remove-btn" onclick="removeStep(${idx})">削除 ✕</div><div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:12px;">ブロック ${idx + 1} (${blockNames[step.type]})</div>${inputSection}<label class="form-label" style="margin-top:8px;">💡 指導のポイント (OJTメモ / 任意)</label><textarea class="form-textarea" style="min-height:50px; background:rgba(193,83,27,0.1); margin-bottom:0; border-color:var(--ember);" placeholder="新人がつまずきやすいポイントなど" onchange="editSteps[${idx}].ojt = this.value">${step.ojt || ""}</textarea></div>`;
+    else if (step.type === "accordion") { inputSection = `<label class="form-label">折りたたみのタイトル</label><input type="text" class="form-input" placeholder="例: ※イレギュラー時の対応" value="${step.title || ""}" onchange="editSteps[${idx}].title = this.value"><label class="form-label">詳細テキスト</label><textarea class="form-textarea" placeholder="詳細を記入" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>`; }
+    return `<div class="edit-step-card"><div class="step-remove-btn" onclick="removeStep(${idx})">削除 ✕</div><div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:12px;">ブロック ${idx + 1}</div>${inputSection}<label class="form-label" style="margin-top:8px;">💡 指導のポイント (OJTメモ / 任意)</label><textarea class="form-textarea" style="min-height:50px; background:rgba(193,83,27,0.1); margin-bottom:0; border-color:var(--ember);" placeholder="新人がつまずきやすいポイントなど" onchange="editSteps[${idx}].ojt = this.value">${step.ojt || ""}</textarea></div>`;
   }).join("");
 }
 
@@ -649,29 +581,20 @@ function saveManual() {
     if(s.type === 'accordion') return (s.title || "").trim() !== "" || (s.text || "").trim() !== "";
     return false;
   });
-  if (validSteps.length === 0) { alert("最低1つの有効なブロックを入力してください"); return; }
+  if (validSteps.length === 0) { alert("有効なブロックがありません"); return; }
 
   const isEdit = document.getElementById("editor-title").innerText === "マニュアル編集";
   if (isEdit) {
     const mIndex = manuals.findIndex(x => x.id === currentManualId);
     manuals[mIndex] = { ...manuals[mIndex], category: cat, sub: sub, title: title, steps: validSteps };
-    
-    // (※本来はここでFirebaseへ保存処理が走ります)
-    notifyUpdate(`更新: ${title}`);
+    manualsRef.set(manuals); // Firebaseへ保存（即時同期）
     openManual(currentManualId); 
   } else {
     const newId = manuals.length > 0 ? Math.max(...manuals.map(m => m.id)) + 1 : 1;
-    manuals.push({ id: newId, category: cat, sub: sub, title: title, steps: validSteps, isBookmarked: false });
-    
-    // (※本来はここでFirebaseへ保存処理が走ります)
-    notifyUpdate(`新着: ${title}`);
+    manuals.push({ id: newId, category: cat, sub: sub, title: title, steps: validSteps });
+    manualsRef.set(manuals); // Firebaseへ保存（即時同期）
     closeEditor();
   }
-  
-  const activeTab = document.querySelector('.nav-item.active span').textContent;
-  if (activeTab === 'さがす') renderExplore();
-  else if (activeTab === 'マイ学習') renderBookmark();
-  else renderHome();
 }
 
 function deleteManual(id) {
@@ -680,24 +603,16 @@ function deleteManual(id) {
   viewHistory = viewHistory.filter(v => v !== id);
   localStorage.setItem('gm_history', JSON.stringify(viewHistory));
   
+  manualsRef.set(manuals); // Firebase側も削除
   closeManual();
-  const activeTab = document.querySelector('.nav-item.active span').textContent;
-  if (activeTab === 'さがす') renderExplore();
-  else if (activeTab === 'マイ学習') renderBookmark();
-  else renderHome();
 }
 
-// 追加・更新された際の簡易通知デモ関数
 function notifyUpdate(message) {
   if (isNotificationsEnabled && "Notification" in window && Notification.permission === "granted") {
-    new Notification("凱旋門マニュアル", {
-      body: message + " が追加/更新されました！",
-      icon: "https://placehold.co/100x100/C1531B/FFFFFF?text=GM"
-    });
+    new Notification("凱旋門マニュアル", { body: message + " が追加/更新されました！" });
   }
 }
 
-// 起動時
 renderHome();
 </script>
 </body>

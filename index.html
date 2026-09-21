@@ -19,16 +19,18 @@
   
   .app-container { max-width: 480px; margin: 0 auto; background: var(--cream); min-height: 100vh; position: relative; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow-x: hidden; }
   header { background: linear-gradient(135deg, var(--charcoal), var(--charcoal-2)); color: #F2E9DC; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-bottom: 3px solid var(--ember); }
-  header h1 { font-size: 16px; margin: 0; font-weight: 800; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 800; letter-spacing: 0.05em; }
   main { flex: 1; padding: 16px 16px 80px; overflow-y: auto; }
   .sec-title { font-size: 14px; font-weight: 800; margin: 0 0 12px; border-bottom: 2px solid var(--ember); display: inline-block; padding-bottom: 4px; color: var(--charcoal); }
 
+  /* ボトムナビゲーション */
   .bottom-nav { position: fixed; bottom: 0; width: 100%; max-width: 480px; background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(8px); border-top: 1px solid var(--line); display: flex; justify-content: space-around; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); z-index: 100; }
   .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer; flex: 1; }
   .nav-item.active { color: var(--charcoal); }
   .nav-item svg { stroke: var(--muted); width: 22px; height: 22px; stroke-width: 2; fill: none; transition: 0.2s; }
   .nav-item.active svg { stroke: var(--charcoal); fill: var(--charcoal); }
 
+  /* ツリー型メニュー */
   .tree-cat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
   .tree-cat-head { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 800; font-size: 15px; background: #fff; }
   .tree-cat-head svg { width: 18px; height: 18px; stroke: var(--muted); transition: transform 0.2s; }
@@ -46,10 +48,13 @@
   .manual-item-icon { flex-shrink: 0; color: var(--muted); }
   .manual-item-title { font-size: 13.5px; font-weight: 800; color: var(--ink); line-height: 1.4; }
 
-  .fab { position: fixed; right: 20px; bottom: 80px; width: 56px; height: 56px; background: var(--ember); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(193, 83, 27, 0.4); cursor: pointer; z-index: 90; transition: transform 0.2s; }
+  /* フローティング追加ボタン (管理者モード時のみ表示) */
+  .fab { position: fixed; right: 20px; bottom: 80px; width: 56px; height: 56px; background: var(--ember); color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(193, 83, 27, 0.4); cursor: pointer; z-index: 90; transition: transform 0.2s; }
+  .fab.show { display: flex; }
   .fab:active { transform: scale(0.95); }
   .fab svg { width: 28px; height: 28px; stroke: #fff; stroke-width: 2; }
 
+  /* ビューワー / エディタ */
   .viewer, .editor { position: fixed; inset: 0; background: #fff; z-index: 200; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.25s ease-out; }
   .viewer.open, .editor.open { transform: translateY(0); }
   .v-header { background: #fff; padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
@@ -60,62 +65,76 @@
   .icon-btn { cursor: pointer; color: var(--muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; transition: 0.2s; }
   .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; fill: none; transition: 0.2s; }
   .icon-btn.active svg { fill: var(--ember); stroke: var(--ember); color: var(--ember); }
+  
+  .admin-only { display: none !important; }
+  body.is-admin .admin-only { display: flex !important; }
 
   .v-content { flex: 1; overflow-y: auto; padding-bottom: 40px; background: var(--cream); }
   .v-title-area { padding: 20px 16px 16px; background: #fff; border-bottom: 1px solid var(--line); }
   
   .step-card { background: #fff; margin-bottom: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
-  .step-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
-  .step-num { color: var(--ember); font-weight: 900; font-size: 14px; }
-  .step-desc { font-size: 14.5px; font-weight: 700; line-height: 1.6; flex: 1; }
-  .ojt-tip { margin-top: 12px; padding: 12px; background: #FEF2F2; border-left: 3px solid var(--ember); border-radius: 2px; font-size: 13px; font-weight: 700; color: var(--ember-dark); }
+  .step-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .step-num { color: var(--ember); font-weight: 900; font-size: 14px; flex-shrink: 0; }
+  .step-desc { font-size: 14.5px; font-weight: 700; line-height: 1.6; flex: 1; white-space: pre-wrap; }
+  .ojt-tip { margin-top: 12px; padding: 12px; background: #FEF2F2; border-left: 3px solid var(--ember); border-radius: 2px; font-size: 13px; font-weight: 700; color: var(--ember-dark); white-space: pre-wrap; }
   
-  /* 画像/動画 */
-  .step-media { width: 100%; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 12px; max-height: 250px; object-fit: cover; background: #000; }
+  .step-media { width: 100%; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 8px; max-height: 250px; object-fit: cover; background: #000; }
   video.step-media { object-fit: contain; }
 
-  /* チェックリスト */
   .check-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
   .check-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--ember); cursor: pointer; }
   .check-item label { font-size: 14.5px; font-weight: 700; line-height: 1.5; cursor: pointer; transition: 0.2s; color: var(--ink); }
   .check-item input[type="checkbox"]:checked + label { text-decoration: line-through; color: var(--muted); }
 
-  /* アコーディオン */
-  details.manual-accordion { background: var(--cream); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 12px; overflow: hidden; }
+  details.manual-accordion { background: var(--cream); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
   details.manual-accordion summary { padding: 14px 16px; font-weight: 800; font-size: 14px; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; }
   details.manual-accordion summary::-webkit-details-marker { display: none; }
   details.manual-accordion summary::after { content: "▼"; font-size: 11px; color: var(--muted); transition: 0.2s; }
   details.manual-accordion[open] summary::after { transform: rotate(180deg); }
-  .accordion-content { padding: 0 16px 16px; font-size: 14px; line-height: 1.6; color: var(--ink); border-top: 1px dashed var(--line); margin-top: 4px; padding-top: 12px; }
+  .accordion-content { padding: 0 16px 16px; font-size: 14px; line-height: 1.6; color: var(--ink); border-top: 1px dashed var(--line); margin-top: 4px; padding-top: 12px; white-space: pre-wrap; }
 
-  /* エディタ関連 */
+  /* エディタ */
   .form-group { padding: 16px; background: #fff; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
   .form-label { font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 8px; display: block; }
   .form-input, .form-select, .form-textarea { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; background: var(--cream); color: var(--ink); font-family: inherit; margin-bottom: 12px; }
   .form-textarea { min-height: 80px; resize: vertical; }
-  .edit-step-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 16px; margin: 0 16px 12px; position: relative; }
+  
+  .edit-step-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 16px 16px 12px; margin: 0 16px 12px; position: relative; }
   .step-remove-btn { position: absolute; top: 12px; right: 12px; color: #DC2626; font-size: 12px; font-weight: 800; cursor: pointer; }
   
-  .media-upload-box { width: 100%; min-height: 100px; border: 2px dashed #D1C7B8; border-radius: 6px; background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 12px; overflow: hidden; position: relative; color: var(--muted); font-size: 12px; font-weight: 700; gap: 8px; }
+  .media-upload-box { width: 100%; min-height: 120px; border: 2px dashed #D1C7B8; border-radius: 6px; background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 12px; overflow: hidden; position: relative; color: var(--muted); font-size: 12px; font-weight: 700; gap: 8px; }
   .media-upload-box img, .media-upload-box video { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
   .media-remove { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 10; }
 
-  .add-blocks { display: flex; gap: 8px; margin: 0 16px 24px; overflow-x: auto; padding-bottom: 4px; }
-  .btn-add-step { flex: 1; min-width: 100px; padding: 12px 8px; text-align: center; background: #fff; border: 2px dashed var(--muted); color: var(--muted); font-weight: 800; font-size: 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
-  .btn-add-step:active { background: var(--cream); }
+  .add-blocks { display: flex; gap: 8px; margin: 0 16px 24px; overflow-x: auto; padding-bottom: 8px; }
+  .btn-add-step { flex: 1; min-width: 110px; padding: 12px 8px; text-align: center; background: #fff; border: 2px dashed var(--muted); color: var(--muted); font-weight: 800; font-size: 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+  .btn-add-step:active { background: var(--cream); border-color: var(--ember); color: var(--ember); }
   
   .btn-save { background: var(--ember); color: #fff; border: none; font-weight: 800; font-size: 14px; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
   .edit-chk-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
-  .btn-del-chk { width: 28px; height: 28px; border-radius: 4px; background: #FEE2E2; color: #DC2626; border: none; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+  .btn-del-chk { width: 28px; height: 28px; border-radius: 4px; background: #FEE2E2; color: #DC2626; border: none; font-weight: bold; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; }
+  
+  /* 設定カード用 */
+  .settings-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .settings-item { display: flex; justify-content: space-between; align-items: center; }
+  .settings-label { font-size: 14.5px; font-weight: 800; color: var(--ink); }
+  .settings-desc { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .btn-toggle { padding: 8px 16px; font-size: 13px; font-weight: 800; border-radius: 20px; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); transition: 0.2s; }
+  .btn-toggle.active { background: var(--ember); color: #fff; border-color: var(--ember); }
 </style>
 </head>
 <body>
 
 <div class="app-container">
-  <header><h1>凱旋門 マニュアル</h1></header>
+  <header>
+    <h1>凱旋門 マニュアル</h1>
+    <div style="font-size: 11px; color: #C8BBA8;">同期中 <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#5EA36B;margin-left:4px;"></span></div>
+  </header>
+  
   <main id="main-view"></main>
   
-  <div class="fab" onclick="openEditor()">
+  <!-- FAB (新規追加ボタン：管理者モード時のみ表示) -->
+  <div class="fab" id="main-fab" onclick="openEditor()">
     <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
   </div>
 
@@ -127,7 +146,10 @@
       <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span>さがす</span>
     </div>
     <div class="nav-item" onclick="switchTab('bookmark', this)">
-      <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg><span>マイ学習</span>
+      <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg><span>お気に入り</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('settings', this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span>設定</span>
     </div>
   </div>
 
@@ -136,14 +158,11 @@
     <div class="v-header">
       <div class="v-close" onclick="closeManual()"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>
       <div class="v-actions">
-        <!-- お気に入りボタン -->
         <div class="icon-btn" id="btn-bookmark" onclick="toggleBookmark()">
           <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
         </div>
-        <!-- 編集ボタン -->
-        <div class="icon-btn" onclick="openEditor(currentManualId)"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
-        <!-- 削除ボタン -->
-        <div class="icon-btn" onclick="deleteManual(currentManualId)"><svg viewBox="0 0 24 24" stroke="#DC2626"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
+        <div class="icon-btn admin-only" onclick="openEditor(currentManualId)"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
+        <div class="icon-btn admin-only" onclick="deleteManual(currentManualId)"><svg viewBox="0 0 24 24" stroke="#DC2626"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
       </div>
     </div>
     <div class="v-content" id="viewer-content"></div>
@@ -176,10 +195,12 @@
       <div style="padding:16px 16px 8px; font-weight:800; font-size:14px; color:var(--charcoal);">マニュアルの構成</div>
       <div id="editor-steps-container"></div>
       
+      <!-- ブロック追加ボタン（メディアが独立） -->
       <div class="add-blocks">
         <button class="btn-add-step" onclick="addStepField('text')">＋ テキスト</button>
+        <button class="btn-add-step" onclick="addStepField('media')">＋ 写真・動画</button>
         <button class="btn-add-step" onclick="addStepField('checklist')">＋ チェックリスト</button>
-        <button class="btn-add-step" onclick="addStepField('accordion')">＋ 折りたたみ補足</button>
+        <button class="btn-add-step" onclick="addStepField('accordion')">＋ 折りたたみ</button>
       </div>
     </div>
   </div>
@@ -193,22 +214,64 @@ const HIERARCHY = {
   "rule": { label: "④ルール", color: "var(--c-rule)", subs: ["服務規律", "姿勢のルール"] }
 };
 
-// サンプルデータ (isBookmarked の初期状態を持たせる)
+// メディアが独立した新しいデータ構造
 let manuals = [
   { id: 1, category: "hall", sub: "出し", title: "お肉の提供手順（基本）", isBookmarked: true,
     steps: [
-      { type: "text", text: "提供前に網の状態を確認し、焦げがあれば「網をお取替えしましょうか？」と声をかける。", ojt: "新人は網交換のタイミングが掴めません。「お肉を出す前」と教えてあげて。", media: null },
-      { type: "checklist", items: ["肉の正面をお客様に向ける", "ハッキリとした声で部位名を伝える", "笑顔を添える"], ojt: "声が小さい新人が多いので、ワントーン上げることを意識させます。", media: null },
-      { type: "accordion", title: "※ 厚切り肉や特殊部位の提供時", text: "「片面45秒ずつ焼いていただくと美味しく召し上がれます」等のワンポイントアドバイスを必ず添えてください。焼き時間はバックヤードの表を参照のこと。", ojt: "", media: null }
+      { type: "text", text: "提供前に網の状態を確認し、焦げがあれば「網をお取替えしましょうか？」と声をかける。", ojt: "新人は網交換のタイミングが掴めません。「お肉を出す前」と教えてあげて。" },
+      { type: "media", media: "https://placehold.co/600x300/EFEAE1/8A7F72?text=Meat+Photo+Sample", text: "お肉の正面をお客様に向けて提供する", ojt: "" },
+      { type: "checklist", items: ["ハッキリとした声で部位名を伝える", "笑顔を添える"], ojt: "声が小さい新人が多いので、ワントーン上げることを意識させます。" },
+      { type: "accordion", title: "※ 厚切り肉や特殊部位の提供時", text: "「片面45秒ずつ焼いていただくと美味しく召し上がれます」等のワンポイントアドバイスを必ず添えてください。焼き時間はバックヤードの表を参照のこと。", ojt: "" }
     ]
   }
 ];
 
+let isAdmin = false;
 let currentManualId = null;
 const mainView = document.getElementById("main-view");
 const viewer = document.getElementById("manual-viewer");
 const editor = document.getElementById("manual-editor");
 let editSteps = [];
+
+// --- 設定関連（管理者モード切り替え） ---
+function toggleAdminMode() {
+  if (!isAdmin) {
+    const pwd = prompt("管理者パスワードを入力してください:");
+    if (pwd === "gaisenmon2026") {
+      isAdmin = true;
+      document.body.classList.add("is-admin");
+      document.getElementById("main-fab").classList.add("show");
+      renderSettings();
+      alert("管理者モードに切り替えました。\nマニュアルの作成・編集・削除が可能です。");
+    } else if (pwd !== null) {
+      alert("パスワードが違います。");
+    }
+  } else {
+    isAdmin = false;
+    document.body.classList.remove("is-admin");
+    document.getElementById("main-fab").classList.remove("show");
+    renderSettings();
+  }
+}
+
+function renderSettings() {
+  let html = `<h2 class="sec-title">設定</h2>`;
+  html += `
+    <div class="settings-card">
+      <div class="settings-item">
+        <div>
+          <div class="settings-label">管理者モード</div>
+          <div class="settings-desc">マニュアルの作成・編集・削除を行う機能です。</div>
+        </div>
+        <button class="btn-toggle ${isAdmin ? 'active' : ''}" onclick="toggleAdminMode()">
+          ${isAdmin ? '有効 (解除する)' : '無効 (パスワード入力)'}
+        </button>
+      </div>
+      <!-- 今後、通知設定などをここに追加可能 -->
+    </div>
+  `;
+  mainView.innerHTML = html;
+}
 
 // --- 表示処理 ---
 function renderExplore() {
@@ -251,13 +314,11 @@ function renderExplore() {
   mainView.innerHTML = html;
 }
 
-// お気に入り（マイ学習）タブの描画
 function renderBookmark() {
   const bkmks = manuals.filter(m => m.isBookmarked);
-  let html = `<h2 class="sec-title">マイ学習（お気に入り）</h2>`;
-  
+  let html = `<h2 class="sec-title">お気に入り（マイ学習）</h2>`;
   if(bkmks.length === 0) {
-    html += `<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;">お気に入りに登録されたマニュアルはありません。<br>よく使うマニュアルの⭐ボタンを押して追加しましょう。</div>`;
+    html += `<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;">お気に入りに登録されたマニュアルはありません。<br>閲覧画面の⭐ボタンを押して追加してください。</div>`;
   } else {
     bkmks.forEach(m => {
       html += `
@@ -277,7 +338,8 @@ function switchTab(tab, el) {
   el.classList.add('active');
   if(tab === 'explore') renderExplore();
   else if(tab === 'bookmark') renderBookmark();
-  else mainView.innerHTML = `<h2 class="sec-title">ホーム</h2><div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;">ホーム画面（お知らせや更新情報が入る予定です）</div>`;
+  else if(tab === 'settings') renderSettings();
+  else mainView.innerHTML = `<h2 class="sec-title">ホーム</h2><div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;">お知らせや最近の更新情報がここに表示されます</div>`;
   window.scrollTo(0,0);
 }
 
@@ -291,23 +353,13 @@ function toggleTree(el, ev) {
 function toggleBookmark() {
   const m = manuals.find(x => x.id === currentManualId);
   if (!m) return;
-  
-  // 状態を反転
   m.isBookmarked = !m.isBookmarked;
   
-  // アイコンの見た目を更新
   const btn = document.getElementById("btn-bookmark");
-  if (m.isBookmarked) {
-    btn.classList.add("active");
-  } else {
-    btn.classList.remove("active");
-  }
-
-  // もし「マイ学習」タブを開いている状態なら、裏側のリストも再描画する
+  btn.classList.toggle("active", m.isBookmarked);
+  
   const activeTab = document.querySelector('.nav-item.active span').textContent;
-  if (activeTab === 'マイ学習') {
-    renderBookmark();
-  }
+  if (activeTab === 'お気に入り') renderBookmark();
 }
 
 function openManual(id) {
@@ -315,13 +367,8 @@ function openManual(id) {
   const m = manuals.find(x => x.id === id);
   const catLabel = HIERARCHY[m.category].label;
   
-  // お気に入りボタンの初期状態セット
   const btn = document.getElementById("btn-bookmark");
-  if (m.isBookmarked) {
-    btn.classList.add("active");
-  } else {
-    btn.classList.remove("active");
-  }
+  btn.classList.toggle("active", !!m.isBookmarked);
   
   let html = `
     <div class="v-title-area">
@@ -331,21 +378,29 @@ function openManual(id) {
   `;
   
   m.steps.forEach((s, idx) => {
-    let mediaHtml = "";
-    if(s.media) {
-      if(s.media.includes("video") || s.media.startsWith("data:video")) {
-        mediaHtml = `<video src="${s.media}" controls class="step-media"></video>`;
-      } else {
-        mediaHtml = `<img src="${s.media}" class="step-media">`;
-      }
-    }
-    
     let contentHtml = "";
-    if (!s.type || s.type === "text") {
-      contentHtml = `<div class="step-header"><span class="step-num">${idx + 1}.</span><span class="step-desc">${s.text}</span></div>`;
-    } 
+    let stepNumberHtml = `<span class="step-num">${idx + 1}.</span>`;
+
+    if (s.type === "text") {
+      contentHtml = `<div class="step-header">${stepNumberHtml}<span class="step-desc">${s.text}</span></div>`;
+    }
+    else if (s.type === "media") {
+      let mediaHtml = "";
+      if(s.media) {
+        if(s.media.includes("video") || s.media.startsWith("data:video")) {
+          mediaHtml = `<video src="${s.media}" controls class="step-media"></video>`;
+        } else {
+          mediaHtml = `<img src="${s.media}" class="step-media">`;
+        }
+      }
+      contentHtml = `
+        <div class="step-header" style="margin-bottom:8px;">${stepNumberHtml}<span class="step-desc" style="color:var(--muted);">写真・動画による解説</span></div>
+        ${mediaHtml}
+        ${s.text ? `<div class="step-desc" style="margin-top:8px;">${s.text}</div>` : ""}
+      `;
+    }
     else if (s.type === "checklist") {
-      contentHtml = `<div class="step-header" style="margin-bottom:8px;"><span class="step-num">${idx + 1}.</span><span class="step-desc" style="color:var(--muted);">チェックリスト</span></div>`;
+      contentHtml = `<div class="step-header" style="margin-bottom:8px;">${stepNumberHtml}<span class="step-desc" style="color:var(--muted);">チェックリスト</span></div>`;
       (s.items || []).forEach((it, i) => {
         contentHtml += `
           <div class="check-item">
@@ -366,7 +421,6 @@ function openManual(id) {
 
     html += `
       <div class="step-card">
-        ${mediaHtml}
         ${contentHtml}
         ${s.ojt ? `<div class="ojt-tip">💡 <b>指導のポイント</b><br>${s.ojt}</div>` : ''}
       </div>`;
@@ -375,10 +429,7 @@ function openManual(id) {
   viewer.classList.add("open");
 }
 
-function closeManual() { 
-  viewer.classList.remove("open"); 
-  currentManualId = null; 
-}
+function closeManual() { viewer.classList.remove("open"); currentManualId = null; }
 
 // --- 編集・作成 (CRUD) ---
 function updateSubCats() {
@@ -398,12 +449,13 @@ function openEditor(id = null) {
     updateSubCats();
     document.getElementById("edit-sub").value = m.sub;
     editSteps = JSON.parse(JSON.stringify(m.steps));
-    editSteps.forEach(s => { if(!s.type) s.type = "text"; });
+    // 後方互換：古いデータにtypeがない場合はtextとみなす
+    editSteps.forEach(s => { if(!s.type) s.type = s.media ? "media" : "text"; });
   } else {
     document.getElementById("edit-title").value = "";
     document.getElementById("edit-cat").value = "hall";
     updateSubCats();
-    editSteps = [{ type: "text", text: "", ojt: "", media: null }];
+    editSteps = [{ type: "text", text: "", ojt: "" }];
   }
   renderEditorSteps();
   editor.classList.add("open");
@@ -429,9 +481,12 @@ function removeCheckItem(idx, itemIdx) { editSteps[idx].items.splice(itemIdx, 1)
 function renderEditorSteps() {
   const container = document.getElementById("editor-steps-container");
   container.innerHTML = editSteps.map((step, idx) => {
-    
-    let mediaSection = "";
-    if (step.type !== "accordion") {
+    let inputSection = "";
+
+    if (step.type === "text") {
+      inputSection = `<label class="form-label">手順のテキスト</label><textarea class="form-textarea" placeholder="手順を記入" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>`;
+    } 
+    else if (step.type === "media") {
       let mediaContent = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> <span>写真・動画を追加</span>`;
       if (step.media) {
         if (step.media.includes("video") || step.media.startsWith("data:video")) {
@@ -440,18 +495,16 @@ function renderEditorSteps() {
           mediaContent = `<img src="${step.media}"><div class="media-remove" onclick="removeMedia(event, ${idx})">✕</div>`;
         }
       }
-      mediaSection = `
+      inputSection = `
+        <label class="form-label">アップロード</label>
         <div class="media-upload-box" onclick="if(!event.target.classList.contains('media-remove')) document.getElementById('media-input-${idx}').click()">
           ${mediaContent}
         </div>
         <input type="file" id="media-input-${idx}" accept="image/*,video/*" style="display:none;" onchange="handleMediaUpload(event, ${idx})">
+        <label class="form-label" style="margin-top:12px;">画像・動画の補足説明（任意）</label>
+        <textarea class="form-textarea" placeholder="画像に対する補足説明など" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>
       `;
     }
-
-    let inputSection = "";
-    if (step.type === "text") {
-      inputSection = `<label class="form-label">手順のテキスト</label><textarea class="form-textarea" placeholder="手順を記入" onchange="editSteps[${idx}].text = this.value">${step.text}</textarea>`;
-    } 
     else if (step.type === "checklist") {
       inputSection = `<label class="form-label">チェックリストの項目</label>`;
       (step.items || []).forEach((it, i) => {
@@ -466,18 +519,20 @@ function renderEditorSteps() {
     }
     else if (step.type === "accordion") {
       inputSection = `
-        <label class="form-label">アコーディオンのタイトル（見出し）</label>
+        <label class="form-label">折りたたみのタイトル（見出し）</label>
         <input type="text" class="form-input" placeholder="例: ※イレギュラー時の対応" value="${step.title || ""}" onchange="editSteps[${idx}].title = this.value">
         <label class="form-label">隠しておく詳細テキスト</label>
-        <textarea class="form-textarea" placeholder="詳細を記入" onchange="editSteps[${idx}].text = this.value">${step.text}</textarea>
+        <textarea class="form-textarea" placeholder="詳細を記入" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>
       `;
     }
+
+    // ブロックのラベル名
+    const blockNames = { "text": "テキスト", "media": "写真・動画", "checklist": "チェックリスト", "accordion": "折りたたみ" };
 
     return `
       <div class="edit-step-card">
         <div class="step-remove-btn" onclick="removeStep(${idx})">削除 ✕</div>
-        <div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:12px;">ブロック ${idx + 1} (${step.type})</div>
-        ${mediaSection}
+        <div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:12px;">ブロック ${idx + 1} (${blockNames[step.type]})</div>
         ${inputSection}
         <label class="form-label" style="margin-top:8px;">💡 指導のポイント (OJTメモ / 任意)</label>
         <textarea class="form-textarea" style="min-height:50px; background:#FEF2F2; margin-bottom:0;" placeholder="新人がつまずきやすいポイントなど" onchange="editSteps[${idx}].ojt = this.value">${step.ojt || ""}</textarea>
@@ -487,9 +542,10 @@ function renderEditorSteps() {
 }
 
 function addStepField(type) {
-  if(type === 'text') editSteps.push({ type: "text", text: "", ojt: "", media: null });
-  if(type === 'checklist') editSteps.push({ type: "checklist", items: [""], ojt: "", media: null });
-  if(type === 'accordion') editSteps.push({ type: "accordion", title: "", text: "", ojt: "", media: null });
+  if(type === 'text') editSteps.push({ type: "text", text: "", ojt: "" });
+  if(type === 'media') editSteps.push({ type: "media", text: "", media: null, ojt: "" });
+  if(type === 'checklist') editSteps.push({ type: "checklist", items: [""], ojt: "" });
+  if(type === 'accordion') editSteps.push({ type: "accordion", title: "", text: "", ojt: "" });
   renderEditorSteps();
   const c = document.getElementById("manual-editor").querySelector(".v-content");
   setTimeout(()=> c.scrollTop = c.scrollHeight, 100);
@@ -507,10 +563,12 @@ function saveManual() {
   
   if (!title) { alert("タイトルを入力してください"); return; }
   
+  // ブロックが実質的に空でないか判定
   const validSteps = editSteps.filter(s => {
-    if(s.type === 'text') return s.text.trim() !== "" || s.media !== null;
+    if(s.type === 'text') return (s.text || "").trim() !== "";
+    if(s.type === 'media') return s.media !== null;
     if(s.type === 'checklist') return s.items.some(i => i.trim() !== "");
-    if(s.type === 'accordion') return s.title.trim() !== "" || s.text.trim() !== "";
+    if(s.type === 'accordion') return (s.title || "").trim() !== "" || (s.text || "").trim() !== "";
     return false;
   });
   
@@ -520,31 +578,27 @@ function saveManual() {
   
   if (isEdit) {
     const mIndex = manuals.findIndex(x => x.id === currentManualId);
-    const existingBookmark = manuals[mIndex].isBookmarked; // お気に入り状態を引き継ぐ
+    const existingBookmark = manuals[mIndex].isBookmarked;
     manuals[mIndex] = { id: currentManualId, category: cat, sub: sub, title: title, steps: validSteps, isBookmarked: existingBookmark };
     openManual(currentManualId); 
   } else {
     const newId = manuals.length > 0 ? Math.max(...manuals.map(m => m.id)) + 1 : 1;
-    // 新規作成時はデフォルトでお気に入りは外しておく
     manuals.push({ id: newId, category: cat, sub: sub, title: title, steps: validSteps, isBookmarked: false });
   }
   
   closeEditor();
-  
-  // 現在開いているタブに合わせて再描画
   const activeTab = document.querySelector('.nav-item.active span').textContent;
   if (activeTab === 'さがす') renderExplore();
-  else if (activeTab === 'マイ学習') renderBookmark();
+  else if (activeTab === 'お気に入り') renderBookmark();
 }
 
 function deleteManual(id) {
   if (!confirm("本当にこのマニュアルを削除しますか？")) return;
   manuals = manuals.filter(m => m.id !== id);
   closeManual();
-  
   const activeTab = document.querySelector('.nav-item.active span').textContent;
   if (activeTab === 'さがす') renderExplore();
-  else if (activeTab === 'マイ学習') renderBookmark();
+  else if (activeTab === 'お気に入り') renderBookmark();
 }
 
 // 初期化

@@ -7,6 +7,8 @@
 <!-- Firebase Compat ライブラリの読み込み -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<!-- 【修正①】Firebase Storageのライブラリを追加 -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <style>
   :root {
@@ -218,6 +220,12 @@
 </div>
 
 <script>
+// --- 【修正③】XSS防止エスケープ関数 ---
+function escapeHTML(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // --- Firebase 連携設定 ---
 const firebaseConfig = {
   apiKey: "AIzaSyDzUmUoZsTpV8PlTU-qRyDiByOImpOc_Kk",
@@ -256,9 +264,9 @@ let isNotificationsEnabled = localStorage.getItem('gm_notifications') === 'true'
 let bookmarkedIds = JSON.parse(localStorage.getItem('gm_bookmarks') || '[]');
 
 const HIERARCHY = {
-  "hall": { label: "①ホール", color: "#2F6B7A", subs: ["オンリー", "入口", "出し", "ドリンカー", "運び", "ラスト"] },
-  "kitchen": { label: "②キッチン", color: "#9C4013", subs: ["センター", "ファイヤー", "バック", "刺し場", "洗い場"] },
-  "special": { label: "③特殊技能", color: "#684596", subs: ["集計", "肉カット", "予約管理"] },
+  "hall": { label: "①ホール", color: "#2F6B7A", subs: ["オンリー", "入口", "出し", "ドリンカー", "運び", "ラスト", "ご案内・電話", "レジ"] },
+  "kitchen": { label: "②キッチン", color: "#9C4013", subs: ["センター", "ファイヤー", "バック", "刺し場", "洗い場", "サラキ"] },
+  "special": { label: "③特殊技能", color: "#684596", subs: ["夜集計", "肉カット", "予約管理", "従業員統率", "教育・評価"] },
   "rule": { label: "④ルール", color: "#3F7D4C", subs: ["服務規律", "姿勢のルール"] }
 };
 
@@ -358,7 +366,7 @@ function renderHome() {
       if (m) {
         html += `<div class="manual-item" onclick="openManual(${m.id})">
             <div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
-            <div class="manual-item-title">${m.title} <span class="manual-item-sub">(${HIERARCHY[m.category].label.replace(/[①-④]/g, '')} > ${m.sub})</span></div>
+            <div class="manual-item-title">${escapeHTML(m.title)} <span class="manual-item-sub">(${HIERARCHY[m.category].label.replace(/[①-④]/g, '')} > ${escapeHTML(m.sub)})</span></div>
           </div>`;
       }
     });
@@ -410,9 +418,9 @@ function generateTreeHtml(sourceManuals) {
     cat.subs.forEach(sub => {
       const subManuals = catManuals.filter(m => m.sub === sub);
       if(subManuals.length === 0) return;
-      html += `<div class="tree-sub" onclick="toggleTree(this, event)"><div class="tree-sub-head"><span>${sub} <span style="font-size:11px;color:var(--muted);">(${subManuals.length})</span></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-sub-body">`;
+      html += `<div class="tree-sub" onclick="toggleTree(this, event)"><div class="tree-sub-head"><span>${escapeHTML(sub)} <span style="font-size:11px;color:var(--muted);">(${subManuals.length})</span></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-sub-body">`;
       subManuals.forEach(m => {
-        html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div><div class="manual-item-title">${m.title}</div></div>`;
+        html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div><div class="manual-item-title">${escapeHTML(m.title)}</div></div>`;
       });
       html += `</div></div>`;
     });
@@ -421,15 +429,27 @@ function generateTreeHtml(sourceManuals) {
   return html;
 }
 
+// --- 【修正④】検索の拡張（ステップ内、チェックリスト、OJTメモも対象にする） ---
 function handleSearch(keyword) {
   const container = document.getElementById("explore-content");
   if (!keyword.trim()) { container.innerHTML = generateTreeHtml(manuals); return; }
   const kw = keyword.toLowerCase();
-  const hits = manuals.filter(m => m.title.toLowerCase().includes(kw) || m.sub.toLowerCase().includes(kw) || m.steps.some(s => (s.type === 'text' && s.text && s.text.toLowerCase().includes(kw))));
+  
+  const hits = manuals.filter(m => {
+    return (m.title && m.title.toLowerCase().includes(kw)) || 
+           (m.sub && m.sub.toLowerCase().includes(kw)) || 
+           m.steps.some(s => 
+             (s.text && s.text.toLowerCase().includes(kw)) ||
+             (s.title && s.title.toLowerCase().includes(kw)) ||
+             (s.items && s.items.some(it => it && it.toLowerCase().includes(kw))) ||
+             (s.ojt && s.ojt.toLowerCase().includes(kw))
+           );
+  });
+
   if (hits.length === 0) { container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">見つかりませんでした。</div>`; return; }
   let html = `<div style="font-size:12px;font-weight:800;color:var(--ember);margin-bottom:12px;">検索結果: ${hits.length}件</div>`;
   hits.forEach(m => {
-     html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div><div class="manual-item-title">${m.title} <span class="manual-item-sub">(${m.sub})</span></div></div>`;
+     html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div><div class="manual-item-title">${escapeHTML(m.title)} <span class="manual-item-sub">(${escapeHTML(m.sub)})</span></div></div>`;
   });
   container.innerHTML = html;
 }
@@ -449,7 +469,7 @@ function renderBookmark() {
     html += `<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;background:var(--card);border-radius:8px;">お気に入りに登録されたマニュアルはありません。</div>`;
   } else {
     bkmks.forEach(m => {
-      html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" fill="var(--ember)" stroke="var(--ember)" stroke-width="2" width="18" height="18"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></div><div class="manual-item-title">${m.title}</div></div>`;
+      html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" fill="var(--ember)" stroke="var(--ember)" stroke-width="2" width="18" height="18"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></div><div class="manual-item-title">${escapeHTML(m.title)}</div></div>`;
     });
   }
   mainView.innerHTML = html;
@@ -474,34 +494,48 @@ function toggleBookmark() {
   if (activeTab === 'マイ学習') renderBookmark();
 }
 
+// --- 【修正②】クラッシュ防止ガード ---
 function openManual(id) {
+  const m = manuals.find(x => x.id === id);
+  // 【追加】データがない場合はエラーを出さずに弾く
+  if (!m) {
+    alert("このマニュアルは既に削除されているか、見つかりません。");
+    // 不正なIDを履歴・ブックマークから自動削除
+    viewHistory = viewHistory.filter(v => v !== id);
+    bookmarkedIds = bookmarkedIds.filter(v => v !== id);
+    localStorage.setItem('gm_history', JSON.stringify(viewHistory));
+    localStorage.setItem('gm_bookmarks', JSON.stringify(bookmarkedIds));
+    refreshCurrentView();
+    return;
+  }
+  
   currentManualId = id;
   addToHistory(id); 
-  const m = manuals.find(x => x.id === id);
   const catLabel = HIERARCHY[m.category].label;
   
   document.getElementById("btn-bookmark").classList.toggle("active", bookmarkedIds.includes(id));
   
-  let html = `<div class="v-title-area"><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:8px;">${catLabel} ＞ ${m.sub}</div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--ink);">${m.title}</h2></div>`;
+  let html = `<div class="v-title-area"><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:8px;">${catLabel} ＞ ${escapeHTML(m.sub)}</div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--ink);">${escapeHTML(m.title)}</h2></div>`;
+  
   m.steps.forEach((s, idx) => {
     let contentHtml = "";
     let stepNumberHtml = `<span class="step-num">${idx + 1}.</span>`;
     
     if (s.type === "text") { 
-      contentHtml = `<div class="step-header">${stepNumberHtml}<span class="step-desc">${s.text}</span></div>`; 
+      contentHtml = `<div class="step-header">${stepNumberHtml}<span class="step-desc">${escapeHTML(s.text)}</span></div>`; 
     }
     else if (s.type === "checklist") {
       contentHtml = `<div class="step-header" style="margin-bottom:8px;">${stepNumberHtml}<span class="step-desc" style="color:var(--muted);">チェックリスト</span></div>`;
-      (s.items || []).forEach((it, i) => { contentHtml += `<div class="check-item"><input type="checkbox" id="chk-${idx}-${i}"><label for="chk-${idx}-${i}">${it}</label></div>`; });
+      (s.items || []).forEach((it, i) => { contentHtml += `<div class="check-item"><input type="checkbox" id="chk-${idx}-${i}"><label for="chk-${idx}-${i}">${escapeHTML(it)}</label></div>`; });
     }
     else if (s.type === "accordion") { 
-      contentHtml = `<details class="manual-accordion"><summary>${s.title || "さらに詳しく見る"}</summary><div class="accordion-content">${s.text}</div></details>`; 
+      contentHtml = `<details class="manual-accordion"><summary>${escapeHTML(s.title) || "さらに詳しく見る"}</summary><div class="accordion-content">${escapeHTML(s.text)}</div></details>`; 
     }
     else if (s.type === "media") {
       let mediaTag = "";
       if (s.url) {
-        if (s.mediaType && s.mediaType.startsWith("video")) { mediaTag = `<video class="media-content" src="${s.url}" controls></video>`; } 
-        else { mediaTag = `<img class="media-content" src="${s.url}">`; }
+        if (s.mediaType && s.mediaType.startsWith("video")) { mediaTag = `<video class="media-content" src="${escapeHTML(s.url)}" controls playsinline></video>`; } 
+        else { mediaTag = `<img class="media-content" src="${escapeHTML(s.url)}">`; }
       }
       contentHtml = `<div class="step-header" style="flex-direction:column; align-items:flex-start;">
         <div style="display:flex; gap:8px;">${stepNumberHtml}<span class="step-desc" style="color:var(--muted);">画像・動画</span></div>
@@ -509,7 +543,7 @@ function openManual(id) {
       </div>`;
     }
 
-    html += `<div class="step-card">${contentHtml}${s.ojt ? `<div class="ojt-tip">💡 <b>指導のポイント</b><br>${s.ojt}</div>` : ''}</div>`;
+    html += `<div class="step-card">${contentHtml}${s.ojt ? `<div class="ojt-tip">💡 <b>指導のポイント</b><br>${escapeHTML(s.ojt)}</div>` : ''}</div>`;
   });
   document.getElementById("viewer-content").innerHTML = html;
   viewer.classList.add("open");
@@ -548,17 +582,32 @@ function updateCheckItem(idx, itemIdx, val) { editSteps[idx].items[itemIdx] = va
 function addCheckItem(idx) { editSteps[idx].items.push(""); renderEditorSteps(); }
 function removeCheckItem(idx, itemIdx) { editSteps[idx].items.splice(itemIdx, 1); renderEditorSteps(); }
 
-// メディアのローカル読み込み（Base64変換）
-window.handleMediaUpload = function(input, idx) {
+// --- 【修正①】Firebase Storageへのアップロード処理 ---
+window.handleMediaUpload = async function(input, idx) {
   const file = input.files[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    editSteps[idx].url = e.target.result;
-    editSteps[idx].mediaType = file.type; // "image/jpeg", "video/mp4"等
+
+  // 処理中にボタンを無効化（連打やフリーズ防止）
+  input.disabled = true;
+  const originalBg = input.style.background;
+  input.style.background = "#E4EEF1"; 
+
+  try {
+    const storageRef = firebase.storage().ref();
+    const fileRef = storageRef.child(`manual_media/${Date.now()}_${file.name}`);
+    const snapshot = await fileRef.put(file);
+    const downloadURL = await snapshot.ref.getDownloadURL();
+    
+    editSteps[idx].url = downloadURL;
+    editSteps[idx].mediaType = file.type;
     renderEditorSteps();
-  };
-  reader.readAsDataURL(file);
+  } catch(e) {
+    console.error(e);
+    alert("アップロードに失敗しました。ファイルサイズや通信環境をご確認ください。");
+  } finally {
+    input.disabled = false;
+    input.style.background = originalBg;
+  }
 };
 
 function addStepField(type) {
@@ -578,29 +627,29 @@ function renderEditorSteps() {
     let inputSection = "";
     
     if (step.type === "text") { 
-      inputSection = `<label class="form-label">手順のテキスト</label><textarea class="form-textarea" placeholder="手順を記入" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>`; 
+      inputSection = `<label class="form-label">手順のテキスト</label><textarea class="form-textarea" placeholder="手順を記入" onchange="editSteps[${idx}].text = this.value">${escapeHTML(step.text) || ""}</textarea>`; 
     } 
     else if (step.type === "checklist") {
       inputSection = `<label class="form-label">チェックリストの項目</label>`;
-      (step.items || []).forEach((it, i) => { inputSection += `<div class="edit-chk-row" style="display:flex;gap:8px;margin-bottom:8px;"><input type="text" class="form-input" style="margin:0;" placeholder="項目を入力" value="${it}" onchange="updateCheckItem(${idx}, ${i}, this.value)"><button style="padding:0;width:32px;border:none;background:#FEE2E2;color:#DC2626;border-radius:6px;cursor:pointer;" onclick="removeCheckItem(${idx}, ${i})">✕</button></div>`; });
+      (step.items || []).forEach((it, i) => { inputSection += `<div class="edit-chk-row" style="display:flex;gap:8px;margin-bottom:8px;"><input type="text" class="form-input" style="margin:0;" placeholder="項目を入力" value="${escapeHTML(it)}" onchange="updateCheckItem(${idx}, ${i}, this.value)"><button style="padding:0;width:32px;border:none;background:#FEE2E2;color:#DC2626;border-radius:6px;cursor:pointer;" onclick="removeCheckItem(${idx}, ${i})">✕</button></div>`; });
       inputSection += `<button class="btn-add-step" style="width:100%; margin:4px 0 12px; padding:8px;" onclick="addCheckItem(${idx})">＋ 項目を追加</button>`;
     }
     else if (step.type === "accordion") { 
-      inputSection = `<label class="form-label">折りたたみのタイトル</label><input type="text" class="form-input" placeholder="例: ※イレギュラー時の対応" value="${step.title || ""}" onchange="editSteps[${idx}].title = this.value"><label class="form-label">詳細テキスト</label><textarea class="form-textarea" placeholder="詳細を記入" onchange="editSteps[${idx}].text = this.value">${step.text || ""}</textarea>`; 
+      inputSection = `<label class="form-label">折りたたみのタイトル</label><input type="text" class="form-input" placeholder="例: ※イレギュラー時の対応" value="${escapeHTML(step.title) || ""}" onchange="editSteps[${idx}].title = this.value"><label class="form-label">詳細テキスト</label><textarea class="form-textarea" placeholder="詳細を記入" onchange="editSteps[${idx}].text = this.value">${escapeHTML(step.text) || ""}</textarea>`; 
     }
     else if (step.type === "media") {
       let preview = "";
       if (step.url) {
-        if (step.mediaType && step.mediaType.startsWith('video')) { preview = `<video class="media-content" src="${step.url}" controls></video>`; }
-        else { preview = `<img class="media-content" src="${step.url}">`; }
+        if (step.mediaType && step.mediaType.startsWith('video')) { preview = `<video class="media-content" src="${escapeHTML(step.url)}" controls playsinline></video>`; }
+        else { preview = `<img class="media-content" src="${escapeHTML(step.url)}">`; }
       }
       inputSection = `<label class="form-label">画像・動画 (ファイル選択 または URL直入力)</label>
         <input type="file" accept="image/*,video/*" class="form-file" onchange="handleMediaUpload(this, ${idx})">
-        <input type="text" class="form-input" placeholder="または外部URLを入力" value="${step.url || ""}" onchange="editSteps[${idx}].url = this.value; editSteps[${idx}].mediaType = this.value.match(/\\.(mp4|webm)/i) ? 'video/mp4' : 'image/jpeg'; renderEditorSteps();">
+        <input type="text" class="form-input" placeholder="または外部URLを入力" value="${escapeHTML(step.url) || ""}" onchange="editSteps[${idx}].url = this.value; editSteps[${idx}].mediaType = this.value.match(/\\.(mp4|webm|mov)/i) ? 'video/mp4' : 'image/jpeg'; renderEditorSteps();">
         ${preview}`;
     }
 
-    return `<div class="edit-step-card"><div class="step-remove-btn" onclick="removeStep(${idx})">削除 ✕</div><div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:12px;">ブロック ${idx + 1}</div>${inputSection}<label class="form-label" style="margin-top:8px;">💡 指導のポイント (OJTメモ / 任意)</label><textarea class="form-textarea" style="min-height:50px; background:rgba(193,83,27,0.1); margin-bottom:0; border-color:var(--ember);" placeholder="新人がつまずきやすいポイントなど" onchange="editSteps[${idx}].ojt = this.value">${step.ojt || ""}</textarea></div>`;
+    return `<div class="edit-step-card"><div class="step-remove-btn" onclick="removeStep(${idx})">削除 ✕</div><div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:12px;">ブロック ${idx + 1}</div>${inputSection}<label class="form-label" style="margin-top:8px;">💡 指導のポイント (OJTメモ / 任意)</label><textarea class="form-textarea" style="min-height:50px; background:rgba(193,83,27,0.1); margin-bottom:0; border-color:var(--ember);" placeholder="新人がつまずきやすいポイントなど" onchange="editSteps[${idx}].ojt = this.value">${escapeHTML(step.ojt) || ""}</textarea></div>`;
   }).join("");
 }
 
@@ -637,7 +686,9 @@ function deleteManual(id) {
   if (!confirm("本当にこのマニュアルを削除しますか？")) return;
   manuals = manuals.filter(m => m.id !== id);
   viewHistory = viewHistory.filter(v => v !== id);
+  bookmarkedIds = bookmarkedIds.filter(v => v !== id);
   localStorage.setItem('gm_history', JSON.stringify(viewHistory));
+  localStorage.setItem('gm_bookmarks', JSON.stringify(bookmarkedIds));
   manualsRef.set(manuals);
   closeManual();
 }

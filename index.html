@@ -6,7 +6,6 @@
 <title>凱旋門 マニュアルアプリ</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <style>
   :root {
@@ -87,6 +86,7 @@
 
   .v-content { flex: 1; overflow-y: auto; padding-bottom: 40px; background: var(--cream); }
   .v-title-area { padding: 20px 16px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
+  .v-updated { font-size: 11px; color: var(--muted); margin-top: 6px; }
   
   .step-card { background: var(--card); margin-bottom: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
   .step-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
@@ -100,6 +100,19 @@
   .check-item input[type="checkbox"]:checked + label { text-decoration: line-through; color: var(--muted); }
 
   .media-content { width: 100%; max-height: 240px; object-fit: contain; border-radius: 6px; background: var(--cream); margin-top: 8px; }
+  .media-content.media-loading { min-height: 120px; background: var(--line); }
+  .yt-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; margin-top: 8px; border-radius: 6px; overflow: hidden; background: #000; }
+  .yt-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #viewer-content img.media-content:not(.media-loading) { cursor: zoom-in; }
+  .zoom-caption { font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 300; display: none; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .lightbox.open { display: flex; align-items: center; justify-content: center; }
+  .lightbox.zoomed { display: block; }
+  .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; }
+  .lightbox.zoomed img { max-width: none; max-height: none; cursor: zoom-out; }
+  .lb-close { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: #fff; font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 301; }
+  .lb-hint { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 700; pointer-events: none; white-space: nowrap; }
+  .media-hint { font-size: 11px; color: var(--muted); margin: -6px 0 10px; line-height: 1.5; }
 
   details.manual-accordion { background: var(--cream); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
   details.manual-accordion summary { padding: 14px 16px; font-weight: 800; font-size: 14px; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; }
@@ -115,7 +128,10 @@
   .form-textarea { min-height: 80px; resize: vertical; }
   
   .edit-step-card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px 16px 12px; margin: 0 16px 12px; position: relative; }
-  .step-remove-btn { position: absolute; top: 12px; right: 12px; color: #DC2626; font-size: 12px; font-weight: 800; cursor: pointer; }
+  .step-tools { position: absolute; top: 10px; right: 12px; display: flex; gap: 6px; align-items: center; }
+  .step-tool-btn { width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 6px; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .step-tool-btn:disabled { opacity: 0.3; cursor: default; }
+  .step-remove-btn { color: #DC2626; font-size: 12px; font-weight: 800; cursor: pointer; margin-left: 4px; }
   
   .add-blocks { display: flex; gap: 8px; margin: 0 16px 24px; overflow-x: auto; padding-bottom: 8px; }
   .btn-add-step { flex: 1; min-width: 100px; padding: 12px 6px; text-align: center; background: var(--card); border: 2px dashed var(--muted); color: var(--muted); font-weight: 800; font-size: 11.5px; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: 0.2s; }
@@ -216,11 +232,19 @@
   </div>
 </div>
 
+<div class="lightbox" id="lightbox">
+  <div class="lb-close" id="lb-close">✕</div>
+  <img id="lb-img" alt="">
+  <div class="lb-hint">画像をタップで2倍 ／ 背景タップで閉じる</div>
+</div>
+
 <script>
 function escapeHTML(str) {
   if (!str) return "";
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+// onclick属性に埋め込むID用（英数字・_・- 以外を除去）
+function safeId(id) { return String(id).replace(/[^\w-]/g, ""); }
 
 let isUploading = false;
 
@@ -238,26 +262,36 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.database();
+// マニュアルは manuals/{id} に1件ずつ保存する（同時編集で他の人のデータを上書きしないため）
 const manualsRef = db.ref('stores/gaisenmon/manuals');
+// 画像本体はマニュアルとは別の場所に保存する（一覧の同期が重くならないように）
+const mediaRef = db.ref('stores/gaisenmon/media');
 
 db.ref('.info/connected').on('value', function(snap) {
   const dot = document.getElementById('sync-dot');
   if (snap.val() === true) { dot.style.background = '#5EA36B'; } else { dot.style.background = '#DC2626'; }
 });
 
-let manuals = []; 
+let manuals = [];
 let isAdmin = false;
 let currentManualId = null;
+let editingId = null;        // 編集中のマニュアルID（新規作成中は null）
+let editorSnapshot = "";     // 編集開始時の内容（破棄確認用）
 const mainView = document.getElementById("main-view");
 const viewer = document.getElementById("manual-viewer");
 const editor = document.getElementById("manual-editor");
 let editSteps = [];
 
+// 旧形式（数値ID）の閲覧履歴・お気に入りを新形式（"m"+数値）に変換
+function loadIdList(key) {
+  const arr = JSON.parse(localStorage.getItem(key) || '[]').map(v => typeof v === 'number' ? 'm' + v : String(v));
+  localStorage.setItem(key, JSON.stringify(arr));
+  return arr;
+}
 let isDarkMode = localStorage.getItem('gm_darkmode') === 'true';
 let currentFontSize = localStorage.getItem('gm_fontsize') || 'normal';
-let viewHistory = JSON.parse(localStorage.getItem('gm_history') || '[]');
-let isNotificationsEnabled = localStorage.getItem('gm_notifications') === 'true';
-let bookmarkedIds = JSON.parse(localStorage.getItem('gm_bookmarks') || '[]');
+let viewHistory = loadIdList('gm_history');
+let bookmarkedIds = loadIdList('gm_bookmarks');
 
 const HIERARCHY = {
   "hall": { label: "①ホール", color: "#2F6B7A", subs: ["オンリー", "入口", "出し", "ドリンカー", "運び", "ラスト", "ご案内・電話", "レジ"] },
@@ -266,39 +300,262 @@ const HIERARCHY = {
   "rule": { label: "④ルール", color: "#3F7D4C", subs: ["服務規律", "姿勢のルール"] }
 };
 
-let isInitialLoad = true;
+function formatDate(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return "";
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/* ============================== メディア（画像・動画） ============================== */
+const MAX_IMAGE_CHARS = 400 * 1024; // 圧縮後の上限（base64で約400KB）
+const mediaCache = {};
+
+function withTimeout(promise, ms, msg) {
+  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))]);
+}
+
+function youtubeId(url) {
+  const m = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/.exec(url || "");
+  return m ? m[1] : null;
+}
+
+function detectMediaType(url) {
+  if (youtubeId(url)) return "youtube";
+  if (/\.(mp4|mov|webm)(\?|$)/i.test(url)) return "video/mp4";
+  return "image/jpeg";
+}
+
+function collectMediaKeys(m) {
+  return ((m && m.steps) || []).filter(s => s && s.type === "media" && s.mediaKey).map(s => s.mediaKey);
+}
+
+// ステップ1件分のメディア表示HTML
+function mediaHtml(s) {
+  if (s.mediaKey) {
+    return `<img class="media-content media-loading" data-media-key="${escapeHTML(s.mediaKey)}" alt="">`;
+  }
+  if (!s.url) return "";
+  const yt = youtubeId(s.url);
+  if (yt) {
+    return `<div class="yt-wrap"><iframe src="https://www.youtube-nocookie.com/embed/${yt}" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+  }
+  if (s.mediaType && s.mediaType.startsWith("video")) {
+    return `<video class="media-content" src="${escapeHTML(s.url)}" controls playsinline></video>`;
+  }
+  return `<img class="media-content" src="${escapeHTML(s.url)}">`;
+}
+
+// data-media-key を持つ画像をDBから読み込む（1回読んだらキャッシュ）
+function loadMediaImages(root) {
+  root.querySelectorAll('img[data-media-key]').forEach(img => {
+    const key = img.dataset.mediaKey;
+    const show = (d) => { img.src = d; img.classList.remove('media-loading'); };
+    if (mediaCache[key]) { show(mediaCache[key]); return; }
+    mediaRef.child(key).child('data').once('value').then(snap => {
+      const d = snap.val();
+      if (typeof d === "string" && d.startsWith("data:image/")) {
+        mediaCache[key] = d; show(d);
+      } else {
+        img.classList.remove('media-loading'); img.alt = "画像が見つかりません";
+      }
+    }).catch(() => { img.classList.remove('media-loading'); img.alt = "画像の読み込みに失敗しました"; });
+  });
+}
+
+// 画像を縮小してJPEGのdataURLにする。大きすぎる場合は段階的に小さくする
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const src = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(src);
+      const tries = [[1024, 0.7], [800, 0.6], [640, 0.5]];
+      let out = "";
+      for (const [maxDim, q] of tries) {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); // 透過PNGの背景を白に
+        ctx.drawImage(img, 0, 0, w, h);
+        out = canvas.toDataURL('image/jpeg', q);
+        if (out.length <= MAX_IMAGE_CHARS) break;
+      }
+      if (out.length > MAX_IMAGE_CHARS) reject(new Error("画像を十分に小さくできませんでした。別の画像で試してください。"));
+      else resolve(out);
+    };
+    img.onerror = () => { URL.revokeObjectURL(src); reject(new Error("画像を読み込めませんでした（非対応の形式の可能性）。")); };
+    img.src = src;
+  });
+}
+
+window.handleMediaUpload = async function(input, idx) {
+  const file = input.files[0];
+  if (!file) return;
+  const step = editSteps[idx]; // 送信中に並び替えられても正しいブロックに入るよう参照を保持
+
+  if (file.type.startsWith("video/")) {
+    alert("動画は直接アップロードできません。\nYouTubeに「限定公開」でアップして、そのURLを下の欄に貼ってください。");
+    input.value = ""; return;
+  }
+
+  const saveBtn = document.getElementById("save-btn");
+  isUploading = true;
+  input.disabled = true;
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = "⏳ 画像を処理中..."; }
+
+  const finish = (errMsg) => {
+    isUploading = false;
+    input.disabled = false;
+    input.value = "";
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = "保存"; }
+    if (errMsg) alert(errMsg);
+  };
+
+  try {
+    const dataUrl = await withTimeout(compressImage(file), 15000,
+      "画像の変換に時間がかかりすぎています。別の画像で試してください。");
+    if (saveBtn) saveBtn.innerText = "⏳ 送信中...";
+
+    const key = mediaRef.push().key;
+    await withTimeout(mediaRef.child(key).set({ data: dataUrl, createdAt: Date.now() }), 20000,
+      "送信に時間がかかりすぎています。通信状態を確認してください。");
+
+    mediaCache[key] = dataUrl;
+    step.mediaKey = key;
+    step.url = "";
+    step.mediaType = "image/jpeg";
+    finish(null);
+    renderEditorSteps();
+  } catch (e) {
+    const denied = /permission/i.test((e && (e.code || e.message)) || "");
+    finish(denied
+      ? "データベースのルールで書き込みが拒否されました。\nRealtime Databaseのルールで stores/gaisenmon/media への書き込みを許可してください。"
+      : (e.message || "アップロードに失敗しました。"));
+  }
+};
+
+function isImageStep(s) {
+  if (s.mediaKey) return true;
+  return !!s.url && !youtubeId(s.url) && !(s.mediaType || "").startsWith("video");
+}
+
+/* ---------- 画像の拡大表示 ---------- */
+const lightbox = document.getElementById("lightbox");
+const lbImg = document.getElementById("lb-img");
+
+function openLightbox(src) {
+  lbImg.style.width = "";
+  lightbox.classList.remove("zoomed");
+  lbImg.src = src;
+  lightbox.classList.add("open");
+}
+function closeLightbox() {
+  lightbox.classList.remove("open", "zoomed");
+  lbImg.style.width = "";
+  lbImg.removeAttribute("src");
+}
+
+// マニュアル内の画像をタップしたら拡大
+document.getElementById("viewer-content").addEventListener("click", (e) => {
+  const img = e.target.closest("img.media-content");
+  if (img && img.src && !img.classList.contains("media-loading")) openLightbox(img.src);
+});
+
+// 拡大画像をタップ → 2倍表示 ⇔ 画面に合わせる（タップした位置を中心に拡大）
+lbImg.addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (lightbox.classList.contains("zoomed")) {
+    lightbox.classList.remove("zoomed");
+    lbImg.style.width = "";
+    return;
+  }
+  const rect = lbImg.getBoundingClientRect();
+  const rx = (e.clientX - rect.left) / rect.width;
+  const ry = (e.clientY - rect.top) / rect.height;
+  lbImg.style.width = (rect.width * 2) + "px";
+  lightbox.classList.add("zoomed");
+  requestAnimationFrame(() => {
+    lightbox.scrollLeft = rx * lbImg.offsetWidth - lightbox.clientWidth / 2;
+    lightbox.scrollTop = ry * lbImg.offsetHeight - lightbox.clientHeight / 2;
+  });
+});
+
+lightbox.addEventListener("click", closeLightbox);
+document.getElementById("lb-close").addEventListener("click", (e) => { e.stopPropagation(); closeLightbox(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
+
+function setMediaUrl(idx, value) {
+  const v = (value || "").trim();
+  editSteps[idx].url = v;
+  editSteps[idx].mediaKey = "";
+  editSteps[idx].mediaType = v ? detectMediaType(v) : "";
+  renderEditorSteps();
+}
+
+/* ============================== データ同期 ============================== */
+// 旧形式（配列 / キーとIDが一致しない）かどうか
+function isLegacyData(data) {
+  if (!data) return false;
+  if (Array.isArray(data)) return true;
+  return Object.entries(data).some(([k, m]) => m && typeof m === "object" && String(m.id) !== k);
+}
+// 旧形式 → { "m1": {...}, "m2": {...} } に変換（数字だけのキーだと配列扱いされるので "m" を付ける）
+function convertLegacy(data) {
+  const list = (Array.isArray(data) ? data : Object.values(data)).filter(m => m && typeof m === "object");
+  const out = {};
+  list.forEach((m, i) => {
+    const id = typeof m.id === "number" ? "m" + m.id : (m.id ? safeId(m.id) : "m_legacy" + i);
+    out[id] = { ...m, id, createdAt: m.createdAt ?? (typeof m.id === "number" ? m.id : i) };
+  });
+  return out;
+}
+function normalizeManuals(data) {
+  if (!data || Array.isArray(data)) return [];
+  return Object.entries(data)
+    .filter(([k, m]) => m && typeof m === "object" && HIERARCHY[m.category])
+    .map(([k, m]) => ({ ...m, id: k, steps: Array.isArray(m.steps) ? m.steps.filter(Boolean) : [] }))
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+let migrating = false;
 manualsRef.on('value', (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-        const newManuals = (Array.isArray(data) ? data : Object.values(data)).filter(m => m !== null);
-        if (!isInitialLoad && newManuals.length > manuals.length) { notifyUpdate("新しいマニュアル"); }
-        manuals = newManuals;
-    } else {
-        manuals = [];
-        const defaultData = [{ id: 1, category: "hall", sub: "出し", title: "お肉の提供手順（基本）", steps: [{ type: "text", text: "提供前に網の状態を確認する。", ojt: "" }] }];
-        manualsRef.set(defaultData);
-        manuals = defaultData;
+  const data = snapshot.val();
+  if (isLegacyData(data)) {
+    // 旧形式のデータを1回だけ新形式に移行（transactionなので同時に開いても安全）
+    if (!migrating) {
+      migrating = true;
+      manualsRef.transaction(cur => isLegacyData(cur) ? convertLegacy(cur) : undefined)
+        .catch(e => console.error("migration failed", e))
+        .finally(() => { migrating = false; });
     }
-    isInitialLoad = false;
-    refreshCurrentView();
+    return;
+  }
+  manuals = normalizeManuals(data);
+  refreshCurrentView();
 });
 
 function manualReload() {
   manualsRef.once('value').then((snapshot) => {
     const data = snapshot.val();
-    if(data) { manuals = (Array.isArray(data) ? data : Object.values(data)).filter(m => m !== null); }
+    if (!isLegacyData(data)) manuals = normalizeManuals(data);
     refreshCurrentView();
     const t = document.createElement("div");
     t.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:#fff;padding:12px 24px;border-radius:30px;font-weight:bold;font-size:13px;z-index:9999;";
     t.innerText = "最新データに更新しました";
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 1500);
-  });
+  }).catch(e => alert("更新に失敗しました: " + e.message));
 }
 
 function refreshCurrentView() {
   const activeTab = document.querySelector('.nav-item.active span').textContent;
-  if (activeTab === 'さがす') renderExplore();
+  if (activeTab === 'さがす') {
+    // 検索欄が表示中なら、入力中の文字とカテゴリの開閉状態を残したまま中身だけ更新
+    const input = document.getElementById("explore-search");
+    if (input) handleSearch(input.value); else renderExplore();
+  }
   else if (activeTab === 'マイ学習') renderBookmark();
   else if (activeTab === '設定') renderSettings();
   else if (activeTab === 'ホーム') renderHome();
@@ -320,19 +577,6 @@ function addToHistory(id) {
   localStorage.setItem('gm_history', JSON.stringify(viewHistory));
 }
 
-function toggleNotifications() {
-  if (!isNotificationsEnabled) {
-    if (!("Notification" in window)) { alert("お使いのブラウザはプッシュ通知に対応していません。"); return; }
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        isNotificationsEnabled = true; localStorage.setItem('gm_notifications', 'true'); renderSettings();
-      } else { alert("通知がブロックされています。"); }
-    });
-  } else {
-    isNotificationsEnabled = false; localStorage.setItem('gm_notifications', 'false'); renderSettings();
-  }
-}
-
 function toggleAdminMode() {
   if (!isAdmin) {
     const pwd = prompt("管理者パスワードを入力してください:");
@@ -348,21 +592,22 @@ function toggleAdminMode() {
   }
 }
 
+/* ============================== 画面 ============================== */
+const FILE_ICON = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
+
 function renderHome() {
   let html = `<h2 class="sec-title">ホーム</h2>`;
   html += `<div style="font-weight:800;font-size:13.5px;color:var(--ink);margin:20px 0 10px; display:flex; align-items:center; gap:6px;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>最近見たマニュアル</div>`;
-  if (viewHistory.length === 0) {
+  const recent = viewHistory.map(id => manuals.find(x => x.id === id)).filter(Boolean);
+  if (recent.length === 0) {
     html += `<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;background:var(--card);border:1px dashed var(--line);border-radius:8px;">閲覧履歴はありません。</div>`;
   } else {
-    viewHistory.forEach(id => {
-      const m = manuals.find(x => x.id === id);
-      if (m) {
-        html += `<div class="manual-item" onclick="openManual(${m.id})">
-            <div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
-            <div class="manual-item-title">${escapeHTML(m.title)} <span class="manual-item-sub">(${HIERARCHY[m.category].label.replace(/[①-④]/g, '')} > ${escapeHTML(m.sub)})</span></div>
-          </div>`;
-      }
+    recent.forEach(m => {
+      html += `<div class="manual-item" onclick="openManual('${safeId(m.id)}')">
+          <div class="manual-item-icon">${FILE_ICON}</div>
+          <div class="manual-item-title">${escapeHTML(m.title)} <span class="manual-item-sub">(${HIERARCHY[m.category].label.replace(/[①-④]/g, '')} > ${escapeHTML(m.sub)})</span></div>
+        </div>`;
     });
   }
   mainView.innerHTML = html;
@@ -398,22 +643,30 @@ function generateTreeHtml(sourceManuals) {
     const cat = HIERARCHY[key];
     const catManuals = sourceManuals.filter(m => m.category === key);
     if(catManuals.length === 0) return;
-    html += `<div class="tree-cat" onclick="toggleTree(this, event)"><div class="tree-cat-head" style="border-left: 4px solid ${cat.color};"><span>${cat.label}</span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-cat-body">`;
+    html += `<div class="tree-cat" data-key="cat:${key}" onclick="toggleTree(this, event)"><div class="tree-cat-head" style="border-left: 4px solid ${cat.color};"><span>${cat.label}</span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-cat-body">`;
     cat.subs.forEach(sub => {
       const subManuals = catManuals.filter(m => m.sub === sub);
       if(subManuals.length === 0) return;
-      html += `<div class="tree-sub" onclick="toggleTree(this, event)"><div class="tree-sub-head"><span>${escapeHTML(sub)} <span style="font-size:11px;color:var(--muted);">(${subManuals.length})</span></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-sub-body">`;
-      subManuals.forEach(m => { html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div><div class="manual-item-title">${escapeHTML(m.title)}</div></div>`; });
+      html += `<div class="tree-sub" data-key="sub:${key}:${escapeHTML(sub)}" onclick="toggleTree(this, event)"><div class="tree-sub-head"><span>${escapeHTML(sub)} <span style="font-size:11px;color:var(--muted);">(${subManuals.length})</span></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-sub-body">`;
+      subManuals.forEach(m => { html += `<div class="manual-item" onclick="openManual('${safeId(m.id)}')"><div class="manual-item-icon">${FILE_ICON}</div><div class="manual-item-title">${escapeHTML(m.title)}</div></div>`; });
       html += `</div></div>`;
     });
     html += `</div></div>`;
   });
+  if (!html) html = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">マニュアルはまだありません。</div>`;
   return html;
 }
 
 function handleSearch(keyword) {
   const container = document.getElementById("explore-content");
-  if (!keyword.trim()) { container.innerHTML = generateTreeHtml(manuals); return; }
+  if (!container) return;
+  if (!keyword.trim()) {
+    // 再描画しても開いていたカテゴリは開いたままにする
+    const openKeys = new Set([...container.querySelectorAll('.tree-cat.open, .tree-sub.open')].map(el => el.dataset.key));
+    container.innerHTML = generateTreeHtml(manuals);
+    container.querySelectorAll('[data-key]').forEach(el => { if (openKeys.has(el.dataset.key)) el.classList.add('open'); });
+    return;
+  }
   const kw = keyword.toLowerCase();
   
   const hits = manuals.filter(m => {
@@ -424,14 +677,14 @@ function handleSearch(keyword) {
 
   if (hits.length === 0) { container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">見つかりませんでした。</div>`; return; }
   let html = `<div style="font-size:12px;font-weight:800;color:var(--ember);margin-bottom:12px;">検索結果: ${hits.length}件</div>`;
-  hits.forEach(m => { html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div><div class="manual-item-title">${escapeHTML(m.title)} <span class="manual-item-sub">(${escapeHTML(m.sub)})</span></div></div>`; });
+  hits.forEach(m => { html += `<div class="manual-item" onclick="openManual('${safeId(m.id)}')"><div class="manual-item-icon">${FILE_ICON}</div><div class="manual-item-title">${escapeHTML(m.title)} <span class="manual-item-sub">(${escapeHTML(m.sub)})</span></div></div>`; });
   container.innerHTML = html;
 }
 
 function renderExplore() {
   mainView.innerHTML = `
     <h2 class="sec-title">マニュアルを探す</h2>
-    <div class="search-box"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input type="text" placeholder="キーワードで検索" oninput="handleSearch(this.value)"></div>
+    <div class="search-box"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input type="text" id="explore-search" placeholder="キーワードで検索" oninput="handleSearch(this.value)"></div>
     <div id="explore-content">${generateTreeHtml(manuals)}</div>
   `;
 }
@@ -440,7 +693,7 @@ function renderBookmark() {
   const bkmks = manuals.filter(m => bookmarkedIds.includes(m.id));
   let html = `<h2 class="sec-title">マイ学習（お気に入り）</h2>`;
   if(bkmks.length === 0) { html += `<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;background:var(--card);border-radius:8px;">お気に入りに登録されたマニュアルはありません。</div>`; } 
-  else { bkmks.forEach(m => { html += `<div class="manual-item" onclick="openManual(${m.id})"><div class="manual-item-icon"><svg viewBox="0 0 24 24" fill="var(--ember)" stroke="var(--ember)" stroke-width="2" width="18" height="18"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></div><div class="manual-item-title">${escapeHTML(m.title)}</div></div>`; }); }
+  else { bkmks.forEach(m => { html += `<div class="manual-item" onclick="openManual('${safeId(m.id)}')"><div class="manual-item-icon"><svg viewBox="0 0 24 24" fill="var(--ember)" stroke="var(--ember)" stroke-width="2" width="18" height="18"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></div><div class="manual-item-title">${escapeHTML(m.title)}</div></div>`; }); }
   mainView.innerHTML = html;
 }
 
@@ -473,7 +726,8 @@ function openManual(id) {
   currentManualId = id; addToHistory(id); 
   document.getElementById("btn-bookmark").classList.toggle("active", bookmarkedIds.includes(id));
   
-  let html = `<div class="v-title-area"><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:8px;">${HIERARCHY[m.category].label} ＞ ${escapeHTML(m.sub)}</div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--ink);">${escapeHTML(m.title)}</h2></div>`;
+  const updated = m.updatedAt ? `<div class="v-updated">最終更新 ${formatDate(m.updatedAt)}</div>` : "";
+  let html = `<div class="v-title-area"><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:8px;">${HIERARCHY[m.category].label} ＞ ${escapeHTML(m.sub)}</div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--ink);">${escapeHTML(m.title)}</h2>${updated}</div>`;
   
   m.steps.forEach((s, idx) => {
     let contentHtml = "";
@@ -486,145 +740,79 @@ function openManual(id) {
     }
     else if (s.type === "accordion") { contentHtml = `<details class="manual-accordion"><summary>${escapeHTML(s.title) || "さらに詳しく見る"}</summary><div class="accordion-content">${escapeHTML(s.text)}</div></details>`; }
     else if (s.type === "media") {
-      let mediaTag = "";
-      if (s.url) {
-        if (s.mediaType && s.mediaType.startsWith("video")) { mediaTag = `<video class="media-content" src="${escapeHTML(s.url)}" controls playsinline></video>`; } 
-        else { mediaTag = `<img class="media-content" src="${escapeHTML(s.url)}">`; }
-      }
-      contentHtml = `<div class="step-header" style="flex-direction:column; align-items:flex-start;"><div style="display:flex; gap:8px;">${stepNumberHtml}<span class="step-desc" style="color:var(--muted);">画像・動画</span></div>${mediaTag}</div>`;
+      contentHtml = `<div class="step-header" style="flex-direction:column; align-items:stretch;"><div style="display:flex; gap:8px;">${stepNumberHtml}<span class="step-desc" style="color:var(--muted);">画像・動画</span></div>${mediaHtml(s)}${isImageStep(s) ? '<div class="zoom-caption">タップで拡大</div>' : ''}</div>`;
     }
     html += `<div class="step-card">${contentHtml}${s.ojt ? `<div class="ojt-tip">💡 <b>指導のポイント</b><br>${escapeHTML(s.ojt)}</div>` : ''}</div>`;
   });
-  document.getElementById("viewer-content").innerHTML = html;
+  const vc = document.getElementById("viewer-content");
+  vc.innerHTML = html;
+  loadMediaImages(vc);
   viewer.classList.add("open");
 }
 
-function closeManual() { viewer.classList.remove("open"); currentManualId = null; if(document.querySelector('.nav-item.active span').textContent === 'ホーム') { renderHome(); } }
+function closeManual() { closeLightbox(); viewer.classList.remove("open"); currentManualId = null; if(document.querySelector('.nav-item.active span').textContent === 'ホーム') { renderHome(); } }
 
+/* ============================== エディタ ============================== */
 function updateSubCats() {
   const cat = document.getElementById("edit-cat").value;
   document.getElementById("edit-sub").innerHTML = HIERARCHY[cat].subs.map(s => `<option value="${s}">${s}</option>`).join("");
 }
+function editorStateNow() {
+  return JSON.stringify({
+    t: document.getElementById("edit-title").value,
+    c: document.getElementById("edit-cat").value,
+    s: document.getElementById("edit-sub").value,
+    steps: editSteps
+  });
+}
 function openEditor(id = null) {
-  const isEdit = id !== null;
-  document.getElementById("editor-title").innerText = isEdit ? "マニュアル編集" : "新規作成";
-  if (isEdit) {
-    const m = manuals.find(x => x.id === id);
+  editingId = id;
+  document.getElementById("editor-title").innerText = id ? "マニュアル編集" : "新規作成";
+  const m = id ? manuals.find(x => x.id === id) : null;
+  if (m) {
     document.getElementById("edit-title").value = m.title; document.getElementById("edit-cat").value = m.category;
     updateSubCats(); document.getElementById("edit-sub").value = m.sub;
     editSteps = JSON.parse(JSON.stringify(m.steps));
   } else {
+    editingId = null;
     document.getElementById("edit-title").value = ""; document.getElementById("edit-cat").value = "hall";
     updateSubCats(); editSteps = [{ type: "text", text: "", ojt: "" }];
   }
   renderEditorSteps();
+  editorSnapshot = editorStateNow();
   editor.classList.add("open");
 }
-function closeEditor() { editor.classList.remove("open"); }
+// force=true は保存後など、確認なしで閉じるとき
+function closeEditor(force = false) {
+  if (!force) {
+    if (document.activeElement) document.activeElement.blur(); // 入力中の内容を反映させてから比較
+    const dirty = isUploading || editorStateNow() !== editorSnapshot;
+    if (dirty && !confirm("保存していない変更があります。破棄して閉じますか？")) return;
+  }
+  editor.classList.remove("open");
+  editingId = null;
+}
 
 function updateCheckItem(idx, itemIdx, val) { editSteps[idx].items[itemIdx] = val; }
 function addCheckItem(idx) { editSteps[idx].items.push(""); renderEditorSteps(); }
 function removeCheckItem(idx, itemIdx) { editSteps[idx].items.splice(itemIdx, 1); renderEditorSteps(); }
 
-// --- スマホメモリクラッシュ防止用: 画像圧縮関数 ---
-function compressImage(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(img.src); // メモリ解放（フリーズ防止の肝）
-      let width = img.width;
-      let height = img.height;
-      const maxDim = 1280; // 最大1280pxにリサイズして軽量化
-      
-      if (width > maxDim || height > maxDim) {
-        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; } 
-        else { width = Math.round(width * maxDim / height); height = maxDim; }
-      }
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      canvas.toBlob(blob => {
-        if (!blob) return reject(new Error("圧縮に失敗しました"));
-        // 圧縮後の軽量JPEGファイルとして返す
-        resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: "image/jpeg" }));
-      }, 'image/jpeg', 0.7); // 画質70%で軽量化
-    };
-    img.onerror = err => { URL.revokeObjectURL(img.src); reject(err); };
-    img.src = URL.createObjectURL(file); // FileReaderではなくObjectURLを使用しメモリ圧迫を防ぐ
-  });
-}
-
-// --- 画像・動画アップロード処理（ロック確実化＋自動圧縮） ---
-window.handleMediaUpload = async function(input, idx) {
-  const file = input.files[0];
-  if(!file) return;
-
-  const saveBtn = document.getElementById("save-btn");
-  
-  // スマホでの動画容量制限（50MB）
-  if (file.type.startsWith("video/") && file.size > 50 * 1024 * 1024) {
-    alert("動画のサイズが大きすぎます（50MB以上）。短い動画を選択するか、解像度を下げてください。");
-    input.value = ""; return;
-  }
-
-  isUploading = true;
-  input.disabled = true;
-  const originalBg = input.style.background;
-  input.style.background = "#E4EEF1"; 
-
-  if(saveBtn) {
-    saveBtn.disabled = true;
-    saveBtn.innerText = "⏳ 処理中...";
-  }
-
-  try {
-    let uploadFile = file;
-    let mType = file.type || (file.name.match(/\.(mp4|mov|webm)$/i) ? 'video/mp4' : 'image/jpeg');
-
-    // 動画以外（画像・HEICなど）はすべてクライアント側で圧縮する
-    if (!mType.startsWith("video/")) {
-      uploadFile = await compressImage(file);
-      mType = "image/jpeg";
-    }
-
-    const storageRef = firebase.storage().ref();
-    const fileRef = storageRef.child(`manual_media/${Date.now()}_${uploadFile.name}`);
-    const snapshot = await fileRef.put(uploadFile);
-    const downloadURL = await snapshot.ref.getDownloadURL();
-    
-    editSteps[idx].url = downloadURL;
-    editSteps[idx].mediaType = mType;
-    renderEditorSteps(); 
-
-  } catch(e) {
-    console.error(e);
-    alert("ファイルの処理またはアップロードに失敗しました。時間をおいて再試行してください。");
-  } finally {
-    isUploading = false;
-    input.disabled = false;
-    input.style.background = originalBg;
-    input.value = ""; // 入力リセット
-    if(saveBtn) {
-      saveBtn.disabled = false;
-      saveBtn.innerText = "保存";
-    }
-  }
-};
-
 function addStepField(type) {
   if(type === 'text') editSteps.push({ type: "text", text: "", ojt: "" });
   if(type === 'checklist') editSteps.push({ type: "checklist", items: [""], ojt: "" });
   if(type === 'accordion') editSteps.push({ type: "accordion", title: "", text: "", ojt: "" });
-  if(type === 'media') editSteps.push({ type: "media", url: "", mediaType: "", ojt: "" });
+  if(type === 'media') editSteps.push({ type: "media", url: "", mediaKey: "", mediaType: "", ojt: "" });
   renderEditorSteps();
   const c = document.getElementById("manual-editor").querySelector(".v-content");
   setTimeout(()=> c.scrollTop = c.scrollHeight, 100);
 }
 function removeStep(idx) { editSteps.splice(idx, 1); renderEditorSteps(); }
+function moveStep(idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= editSteps.length) return;
+  [editSteps[idx], editSteps[j]] = [editSteps[j], editSteps[idx]];
+  renderEditorSteps();
+}
 
 function renderEditorSteps() {
   const container = document.getElementById("editor-steps-container");
@@ -643,23 +831,28 @@ function renderEditorSteps() {
       inputSection = `<label class="form-label">折りたたみのタイトル</label><input type="text" class="form-input" placeholder="例: ※イレギュラー時の対応" value="${escapeHTML(step.title) || ""}" onchange="editSteps[${idx}].title = this.value"><label class="form-label">詳細テキスト</label><textarea class="form-textarea" placeholder="詳細を記入" onchange="editSteps[${idx}].text = this.value">${escapeHTML(step.text) || ""}</textarea>`; 
     }
     else if (step.type === "media") {
-      let preview = "";
-      if (step.url) {
-        if (step.mediaType && step.mediaType.startsWith('video')) { preview = `<video class="media-content" src="${escapeHTML(step.url)}" controls playsinline></video>`; }
-        else { preview = `<img class="media-content" src="${escapeHTML(step.url)}">`; }
-      }
-      inputSection = `<label class="form-label">画像・動画 (ファイルを選択)</label>
-        <input type="file" accept="image/*,video/*" class="form-file" onchange="handleMediaUpload(this, ${idx})">
-        <input type="text" class="form-input" placeholder="または外部URLを入力" value="${escapeHTML(step.url) || ""}" onchange="editSteps[${idx}].url = this.value; editSteps[${idx}].mediaType = this.value.match(/\\.(mp4|mov|webm)/i) ? 'video/mp4' : 'image/jpeg'; renderEditorSteps();">
-        ${preview}`;
+      inputSection = `<label class="form-label">画像 (ファイルを選択)</label>
+        <input type="file" accept="image/*" class="form-file" onchange="handleMediaUpload(this, ${idx})">
+        <label class="form-label">動画はYouTubeのURL (または画像のURL)</label>
+        <input type="text" class="form-input" placeholder="https://youtu.be/..." value="${escapeHTML(step.url) || ""}" onchange="setMediaUrl(${idx}, this.value)">
+        <div class="media-hint">動画はYouTubeに「限定公開」でアップしてURLを貼ってください。</div>
+        ${mediaHtml(step)}`;
     }
 
-    return `<div class="edit-step-card"><div class="step-remove-btn" onclick="removeStep(${idx})">削除 ✕</div><div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:12px;">ブロック ${idx + 1}</div>${inputSection}<label class="form-label" style="margin-top:8px;">💡 指導のポイント (OJTメモ / 任意)</label><textarea class="form-textarea" style="min-height:50px; background:rgba(193,83,27,0.1); margin-bottom:0; border-color:var(--ember);" placeholder="新人がつまずきやすいポイントなど" onchange="editSteps[${idx}].ojt = this.value">${escapeHTML(step.ojt) || ""}</textarea></div>`;
+    const tools = `<div class="step-tools">
+        <button class="step-tool-btn" onclick="moveStep(${idx}, -1)" ${idx === 0 ? "disabled" : ""} aria-label="上へ移動">↑</button>
+        <button class="step-tool-btn" onclick="moveStep(${idx}, 1)" ${idx === editSteps.length - 1 ? "disabled" : ""} aria-label="下へ移動">↓</button>
+        <div class="step-remove-btn" onclick="removeStep(${idx})">削除 ✕</div>
+      </div>`;
+
+    return `<div class="edit-step-card">${tools}<div style="font-size:12px; font-weight:800; color:var(--ember); margin-bottom:12px;">ブロック ${idx + 1}</div>${inputSection}<label class="form-label" style="margin-top:8px;">💡 指導のポイント (OJTメモ / 任意)</label><textarea class="form-textarea" style="min-height:50px; background:rgba(193,83,27,0.1); margin-bottom:0; border-color:var(--ember);" placeholder="新人がつまずきやすいポイントなど" onchange="editSteps[${idx}].ojt = this.value">${escapeHTML(step.ojt) || ""}</textarea></div>`;
   }).join("");
+  loadMediaImages(container);
 }
 
 function saveManual() {
-  if (isUploading) { alert("現在、ファイルの処理・送信中です。完了するまでお待ちください。"); return; }
+  if (isUploading) { alert("現在、画像を送信中です。完了するまでお待ちください。"); return; }
+  if (document.activeElement) document.activeElement.blur(); // 入力中の内容を確実に反映
   const title = document.getElementById("edit-title").value.trim();
   const cat = document.getElementById("edit-cat").value;
   const sub = document.getElementById("edit-sub").value;
@@ -667,37 +860,43 @@ function saveManual() {
   
   const validSteps = editSteps.filter(s => {
     if(s.type === 'text') return (s.text || "").trim() !== "";
-    if(s.type === 'checklist') return s.items.some(i => i.trim() !== "");
+    if(s.type === 'checklist') return (s.items || []).some(i => i.trim() !== "");
     if(s.type === 'accordion') return (s.title || "").trim() !== "" || (s.text || "").trim() !== "";
-    if(s.type === 'media') return (s.url || "").trim() !== "";
+    if(s.type === 'media') return (s.url || "").trim() !== "" || !!s.mediaKey;
     return false;
   });
   if (validSteps.length === 0) { alert("有効なブロックがありません"); return; }
 
-  const isEdit = document.getElementById("editor-title").innerText === "マニュアル編集";
-  if (isEdit) {
-    const mIndex = manuals.findIndex(x => x.id === currentManualId);
-    manuals[mIndex] = { ...manuals[mIndex], category: cat, sub: sub, title: title, steps: validSteps };
-    manualsRef.set(manuals); openManual(currentManualId); 
+  const now = Date.now();
+  const onError = e => alert("保存に失敗しました: " + e.message);
+
+  if (editingId) {
+    const id = editingId;
+    const old = manuals.find(x => x.id === id);
+    const data = { ...(old || {}), id, category: cat, sub: sub, title: title, steps: validSteps, createdAt: (old && old.createdAt) ?? now, updatedAt: now };
+    manualsRef.child(id).set(data).then(() => {
+      // 編集で使われなくなった画像をDBから削除
+      const newKeys = new Set(collectMediaKeys(data));
+      collectMediaKeys(old).filter(k => !newKeys.has(k)).forEach(k => mediaRef.child(k).remove());
+      closeEditor(true);
+      openManual(id);
+    }).catch(onError);
   } else {
-    const newId = manuals.length > 0 ? Math.max(...manuals.map(m => m.id)) + 1 : 1;
-    manuals.push({ id: newId, category: cat, sub: sub, title: title, steps: validSteps });
-    manualsRef.set(manuals); closeEditor();
+    const id = manualsRef.push().key;
+    const data = { id, category: cat, sub: sub, title: title, steps: validSteps, createdAt: now, updatedAt: now };
+    manualsRef.child(id).set(data).then(() => closeEditor(true)).catch(onError);
   }
 }
 
 function deleteManual(id) {
   if (!confirm("本当にこのマニュアルを削除しますか？")) return;
-  manuals = manuals.filter(m => m.id !== id);
-  viewHistory = viewHistory.filter(v => v !== id); bookmarkedIds = bookmarkedIds.filter(v => v !== id);
-  localStorage.setItem('gm_history', JSON.stringify(viewHistory)); localStorage.setItem('gm_bookmarks', JSON.stringify(bookmarkedIds));
-  manualsRef.set(manuals); closeManual();
-}
-
-function notifyUpdate(message) {
-  if (isNotificationsEnabled && "Notification" in window && Notification.permission === "granted") {
-    new Notification("凱旋門マニュアル", { body: message + " が追加/更新されました！" });
-  }
+  const target = manuals.find(m => m.id === id);
+  manualsRef.child(id).remove().then(() => {
+    collectMediaKeys(target).forEach(k => mediaRef.child(k).remove());
+    viewHistory = viewHistory.filter(v => v !== id); bookmarkedIds = bookmarkedIds.filter(v => v !== id);
+    localStorage.setItem('gm_history', JSON.stringify(viewHistory)); localStorage.setItem('gm_bookmarks', JSON.stringify(bookmarkedIds));
+    closeManual();
+  }).catch(e => alert("削除に失敗しました: " + e.message));
 }
 </script>
 </body>

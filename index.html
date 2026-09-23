@@ -294,7 +294,7 @@
       <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><span>さがす</span>
     </div>
     <div class="nav-item" onclick="switchTab('bookmark', this)">
-      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg><span>マイ学習</span>
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg><span>お気に入り</span>
     </div>
     <div class="nav-item" onclick="switchTab('settings', this)">
       <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg><span>設定</span>
@@ -1046,7 +1046,7 @@ function refreshCurrentView() {
     const input = document.getElementById("explore-search");
     if (input) handleSearch(input.value); else renderExplore();
   }
-  else if (tab === 'マイ学習') renderBookmark();
+  else if (tab === 'お気に入り') renderBookmark();
   else if (tab === '設定') renderSettings();
   else renderHome();
 }
@@ -1183,7 +1183,7 @@ function renderExplore() {
 
 function renderBookmark() {
   const bkmks = manuals.filter(m => bookmarkedIds.includes(m.id));
-  let html = `<h2 class="sec-title">マイ学習（お気に入り）</h2>`;
+  let html = `<h2 class="sec-title">お気に入り</h2>`;
   if (bkmks.length === 0) html += `<div class="empty-box" style="padding:40px 20px;">お気に入りに登録されたマニュアルはありません。</div>`;
   else bkmks.forEach(m => { html += manualItemHtml(m, "full"); });
   mainView.innerHTML = html;
@@ -1203,7 +1203,7 @@ function toggleBookmark() {
   else bookmarkedIds.push(currentManualId);
   localStorage.setItem('gm_bookmarks', JSON.stringify(bookmarkedIds));
   document.getElementById("btn-bookmark").classList.toggle("active", bookmarkedIds.includes(currentManualId));
-  if (activeTabName() === 'マイ学習') renderBookmark();
+  if (activeTabName() === 'お気に入り') renderBookmark();
 }
 
 /* ---------- マニュアル表示 ---------- */

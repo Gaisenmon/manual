@@ -262,6 +262,12 @@
   .ann-size input[type=range] { width: 180px; accent-color: #fff; }
   .ann-size-val { width: 38px; text-align: right; color: #ddd; font-variant-numeric: tabular-nums; }
 
+  /* カテゴリと業務の編集 */
+  .sub-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+  .sub-row .form-input { margin: 0; flex: 1; min-width: 0; }
+  .sub-count { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+  .cat-card .form-input.cat-name { font-weight: 700; }
+
   body.font-large .manual-item-title { font-size: 15.5px; }
   body.font-large .step-text { font-size: 17px; }
   body.font-large .settings-label { font-size: 16px; }
@@ -334,6 +340,20 @@
       <div id="editor-steps-container"></div>
       <button class="btn-add-step" onclick="addStep()"><i data-ico="plus"></i>ステップを追加</button>
     </div>
+  </div>
+</div>
+
+<!-- カテゴリと業務の編集 -->
+<div class="editor" id="cat-editor">
+  <div class="v-header">
+    <div class="v-close" onclick="closeCatEditor()"><i data-ico="x"></i></div>
+    <div class="editor-title">カテゴリと業務</div>
+    <button class="btn-save" id="cat-save-btn" onclick="saveCatEditor()">保存</button>
+  </div>
+  <div class="v-content">
+    <div class="editor-section-title" style="padding-top:18px;">CATEGORY ／ 大カテゴリと業務名</div>
+    <div id="cat-editor-body"></div>
+    <button class="btn-add-step" onclick="addCatGroup()"><i data-ico="plus"></i>カテゴリを追加</button>
   </div>
 </div>
 
@@ -441,6 +461,8 @@ const db = firebase.database();
 const manualsRef = db.ref('stores/gaisenmon/manuals');   // manuals/{id} に1件ずつ保存
 const mediaRef = db.ref('stores/gaisenmon/media');       // 画像本体
 const feedbackRef = db.ref('stores/gaisenmon/feedback'); // 👍👎とコメント
+const categoriesRef = db.ref('stores/gaisenmon/manualCategories'); // 大カテゴリと業務名の一覧
+const storeRef = db.ref('stores/gaisenmon');
 
 db.ref('.info/connected').on('value', function(snap) {
   document.getElementById('sync-dot').style.background = snap.val() === true ? '#5EA36B' : '#DC2626';
@@ -448,6 +470,7 @@ db.ref('.info/connected').on('value', function(snap) {
 
 /* ============================== 状態 ============================== */
 let manuals = [];
+let lastManualData = null; // カテゴリが変わったときに並べ直すため、DBの生データを持っておく
 let isAdmin = false;
 let currentManualId = null;
 let editingId = null;      // 編集中のマニュアルID（新規は null）
@@ -469,12 +492,35 @@ let currentFontSize = localStorage.getItem('gm_fontsize') || 'normal';
 let viewHistory = loadIdList('gm_history');
 let bookmarkedIds = loadIdList('gm_bookmarks');
 
-const HIERARCHY = {
-  "hall": { label: "①ホール", name: "ホール", no: "01", subs: ["オンリー", "入口", "出し", "ドリンカー", "運び", "ラスト", "ご案内・電話", "レジ"] },
-  "kitchen": { label: "②キッチン", name: "キッチン", no: "02", subs: ["センター", "ファイヤー", "バック", "刺し場", "洗い場", "サラキ"] },
-  "special": { label: "③特殊技能", name: "特殊技能", no: "03", subs: ["夜集計", "肉カット", "予約管理", "従業員統率", "教育・評価"] },
-  "rule": { label: "④ルール", name: "ルール", no: "04", subs: ["服務規律", "姿勢のルール"] }
-};
+/* 大カテゴリと業務名。DB（manualCategories）に保存したものがあればそれを使い、なければこの初期値を使う */
+const DEFAULT_CATEGORIES = [
+  { key: "hall", name: "ホール", subs: ["オンリー", "入口", "出し", "ドリンカー", "運び", "ラスト", "ご案内・電話", "レジ"] },
+  { key: "kitchen", name: "キッチン", subs: ["センター", "ファイヤー", "バック", "刺し場", "洗い場", "サラキ"] },
+  { key: "special", name: "特殊技能", subs: ["夜集計", "肉カット", "予約管理", "従業員統率", "教育・評価"] },
+  { key: "rule", name: "ルール", subs: ["服務規律", "姿勢のルール"] }
+];
+function buildHierarchy(list) {
+  const h = {};
+  list.forEach((c, i) => { h[c.key] = { name: c.name, no: String(i + 1).padStart(2, "0"), subs: [...(c.subs || [])] }; });
+  return h;
+}
+let HIERARCHY = buildHierarchy(DEFAULT_CATEGORIES);
+const ORPHAN_CAT = { name: "未分類", no: "--", subs: [] };
+function catOf(key) { return HIERARCHY[key] || ORPHAN_CAT; }
+// DBから読んだ値を検証して、使える形に整える（壊れていれば null）
+function sanitizeCategories(v) {
+  if (!v || typeof v !== "object") return null;
+  const raw = Array.isArray(v.list) ? v.list : Object.values(v.list || {});
+  const seen = new Set();
+  const list = raw.filter(c => c && typeof c === "object").map(c => {
+    const key = safeId(c.key || "");
+    const name = String(c.name || "").trim();
+    const subsRaw = Array.isArray(c.subs) ? c.subs : Object.values(c.subs || {});
+    const subs = [...new Set(subsRaw.map(s => String(s || "").trim()).filter(Boolean))];
+    return { key, name, subs };
+  }).filter(c => c.key && c.name && !seen.has(c.key) && seen.add(c.key));
+  return list.length ? list : null;
+}
 
 /* ============================== NEW / 更新 バッジ ============================== */
 // この端末で初めて開いた時刻。それより前からあるマニュアルは NEW にしない
@@ -1002,7 +1048,7 @@ function convertBlocks(blocks) {
 function normalizeManuals(data) {
   if (!data || Array.isArray(data)) return [];
   return Object.entries(data)
-    .filter(([k, m]) => m && typeof m === "object" && HIERARCHY[m.category])
+    .filter(([k, m]) => m && typeof m === "object" && m.category)
     .map(([k, m]) => {
       const steps = m.format === 2
         ? (Array.isArray(m.steps) ? m.steps : Object.values(m.steps || {})).filter(Boolean)
@@ -1025,14 +1071,22 @@ manualsRef.on('value', (snapshot) => {
     }
     return;
   }
+  lastManualData = data;
   manuals = normalizeManuals(data);
   refreshCurrentView();
 });
 
+categoriesRef.on('value', (snap) => {
+  HIERARCHY = buildHierarchy(sanitizeCategories(snap.val()) || DEFAULT_CATEGORIES);
+  manuals = normalizeManuals(lastManualData);
+  refreshCatSelect();
+  refreshCurrentView();
+}, (err) => console.warn("manualCategories を読めませんでした（DBのルールを確認）", err));
+
 function manualReload() {
   manualsRef.once('value').then((snapshot) => {
     const data = snapshot.val();
-    if (!isLegacyData(data)) manuals = normalizeManuals(data);
+    if (!isLegacyData(data)) { lastManualData = data; manuals = normalizeManuals(data); }
     refreshCurrentView();
     toast("最新データに更新しました");
   }).catch(e => alert("更新に失敗しました: " + e.message));
@@ -1082,7 +1136,7 @@ function toggleAdminMode() {
 }
 
 /* ============================== 画面 ============================== */
-function catLabel(m) { return HIERARCHY[m.category].name; }
+function catLabel(m) { return catOf(m.category).name; }
 function manualItemHtml(m, showPath) {
   const path = showPath ? `<span class="manual-item-sub">${showPath === "full" ? catLabel(m) + " ／ " : ""}${escapeHTML(m.sub)}</span>` : "";
   return `<div class="manual-item" onclick="openManual('${safeId(m.id)}')"><div class="manual-item-icon">${icon("file")}</div><div class="manual-item-title">${escapeHTML(m.title)}${badgeHtml(m)}${path}</div><div class="manual-item-arrow">${icon("chevRight")}</div></div>`;
@@ -1123,6 +1177,13 @@ function renderSettings() {
         <button class="btn-toggle ${isAdmin ? 'active' : ''}" onclick="toggleAdminMode()">${isAdmin ? 'オフにする' : 'オンにする(PW入力)'}</button>
       </div>
     </div>
+    ${isAdmin ? `<div class="settings-card">
+      <div class="settings-cap">CATEGORY ／ カテゴリと業務</div>
+      <div class="settings-item">
+        <div class="settings-label">大カテゴリと業務名</div>
+        <button class="btn-toggle" onclick="openCatEditor()">編集する</button>
+      </div>
+    </div>` : ""}
     ${isAdmin ? `<div class="settings-card"><div class="settings-cap">FEEDBACK ／ 評価とコメント</div><div id="fb-overview" style="font-size:12px;color:var(--muted);">読み込み中...</div></div>` : ""}
   `;
   if (isAdmin) loadFeedbackOverview();
@@ -1130,14 +1191,17 @@ function renderSettings() {
 
 function generateTreeHtml(sourceManuals) {
   let html = "";
-  Object.keys(HIERARCHY).forEach(key => {
-    const cat = HIERARCHY[key];
-    const catManuals = sourceManuals.filter(m => m.category === key);
+  const groups = Object.keys(HIERARCHY).map(key => ({ key, cat: HIERARCHY[key], list: sourceManuals.filter(m => m.category === key) }));
+  const orphans = sourceManuals.filter(m => !HIERARCHY[m.category]);
+  if (orphans.length) groups.push({ key: "__orphan", cat: ORPHAN_CAT, list: orphans });
+  groups.forEach(({ key, cat, list: catManuals }) => {
     if (catManuals.length === 0) return;
+    // 一覧にない業務名のマニュアルも見えなくならないよう、末尾に足す
+    const subs = [...cat.subs, ...new Set(catManuals.map(m => m.sub || "未設定").filter(s => !cat.subs.includes(s)))];
     const catDot = catManuals.some(badgeOf) ? `<span class="dot-new"></span>` : "";
     html += `<div class="tree-cat" data-key="cat:${key}" onclick="toggleTree(this, event)"><div class="tree-cat-head"><span><span class="cat-no">${cat.no}</span>${cat.name}${catDot}</span><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-cat-body">`;
-    cat.subs.forEach(sub => {
-      const subManuals = catManuals.filter(m => m.sub === sub);
+    subs.forEach(sub => {
+      const subManuals = catManuals.filter(m => (m.sub || "未設定") === sub);
       if (subManuals.length === 0) return;
       const subDot = subManuals.some(badgeOf) ? `<span class="dot-new"></span>` : "";
       html += `<div class="tree-sub" data-key="sub:${key}:${escapeHTML(sub)}" onclick="toggleTree(this, event)"><div class="tree-sub-head"><span>${escapeHTML(sub)}<span class="count">${subManuals.length}</span>${subDot}</span><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg></div><div class="tree-sub-body">`;
@@ -1236,7 +1300,7 @@ function openManual(id) {
   document.getElementById("btn-bookmark").classList.toggle("active", bookmarkedIds.includes(id));
 
   const updated = m.updatedAt ? `<div class="v-updated">最終更新 ${formatDate(m.updatedAt)}</div>` : "";
-  let html = `<div class="v-title-area"><div class="v-path">${HIERARCHY[m.category].no} ${catLabel(m)} ／ ${escapeHTML(m.sub)}</div><h2 class="v-title">${escapeHTML(m.title)}</h2>${updated}</div>`;
+  let html = `<div class="v-title-area"><div class="v-path">${catOf(m.category).no} ${catLabel(m)} ／ ${escapeHTML(m.sub)}</div><h2 class="v-title">${escapeHTML(m.title)}</h2>${updated}</div>`;
   html += m.steps.map(stepViewHtml).join("");
   html += feedbackHtml();
 
@@ -1371,12 +1435,29 @@ function loadFeedbackOverview() {
 }
 
 /* ============================== エディタ ============================== */
-// 大カテゴリの選択肢
-document.getElementById("edit-cat").innerHTML = Object.entries(HIERARCHY).map(([k, c]) => `<option value="${k}">${c.no} ${c.name}</option>`).join("");
-function updateSubCats() {
-  const cat = document.getElementById("edit-cat").value;
-  document.getElementById("edit-sub").innerHTML = HIERARCHY[cat].subs.map(s => `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join("");
+// 大カテゴリ・業務名の選択肢。keepCat / keepSub が一覧になくても（未分類など）選べるように残す
+function fillCatSelect(keepCat, keepSub) {
+  const catSel = document.getElementById("edit-cat");
+  const opts = Object.entries(HIERARCHY).map(([k, c]) => `<option value="${escapeHTML(k)}">${c.no} ${escapeHTML(c.name)}</option>`);
+  if (keepCat && !HIERARCHY[keepCat]) opts.push(`<option value="${escapeHTML(keepCat)}">${ORPHAN_CAT.name}</option>`);
+  catSel.innerHTML = opts.join("");
+  catSel.value = keepCat && [...catSel.options].some(o => o.value === keepCat) ? keepCat : (Object.keys(HIERARCHY)[0] || "");
+  updateSubCats(keepSub);
 }
+function updateSubCats(keepSub) {
+  const cat = document.getElementById("edit-cat").value;
+  const subs = [...catOf(cat).subs];
+  if (keepSub && !subs.includes(keepSub)) subs.push(keepSub);
+  const subSel = document.getElementById("edit-sub");
+  subSel.innerHTML = subs.map(s => `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join("");
+  if (keepSub) subSel.value = keepSub;
+}
+// カテゴリが変わったとき：編集中のマニュアルの選択はそのまま残す
+function refreshCatSelect() {
+  const open = editor.classList.contains("open");
+  fillCatSelect(open ? document.getElementById("edit-cat").value : null, open ? document.getElementById("edit-sub").value : null);
+}
+fillCatSelect();
 function editorStateNow() {
   return JSON.stringify({
     t: document.getElementById("edit-title").value,
@@ -1391,15 +1472,12 @@ function openEditor(id = null) {
   document.getElementById("editor-title").innerText = m ? "マニュアル編集" : "新規作成";
   if (m) {
     document.getElementById("edit-title").value = m.title;
-    document.getElementById("edit-cat").value = m.category;
-    updateSubCats();
-    document.getElementById("edit-sub").value = m.sub;
+    fillCatSelect(m.category, m.sub);
     editSteps = JSON.parse(JSON.stringify(m.steps));
     if (!editSteps.length) editSteps = [{ text: "" }];
   } else {
     document.getElementById("edit-title").value = "";
-    document.getElementById("edit-cat").value = "hall";
-    updateSubCats();
+    fillCatSelect();
     editSteps = [{ text: "" }];
   }
   renderEditorSteps();
@@ -1574,6 +1652,157 @@ function deleteManual(id) {
     localStorage.setItem('gm_history', JSON.stringify(viewHistory)); localStorage.setItem('gm_bookmarks', JSON.stringify(bookmarkedIds));
     closeManual();
   }).catch(e => alert("削除に失敗しました: " + e.message));
+}
+
+/* ============================== カテゴリと業務の編集（管理者） ============================== */
+const catEditor = document.getElementById("cat-editor");
+let catEdit = [];          // [{ key, name, subs:[{ name, orig }] }]  orig = 保存済みの業務名（新規は ""）
+let catEditSnapshot = "";
+
+function newCatKey() { return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function countManuals(key, sub) { return manuals.filter(m => m.category === key && (sub === undefined || m.sub === sub)).length; }
+
+function openCatEditor() {
+  if (!isAdmin) return;
+  catEdit = Object.entries(HIERARCHY).map(([key, c]) => ({ key, name: c.name, subs: c.subs.map(s => ({ name: s, orig: s })) }));
+  catEditSnapshot = JSON.stringify(catEdit);
+  renderCatEditor();
+  catEditor.querySelector(".v-content").scrollTop = 0;
+  catEditor.classList.add("open");
+}
+function closeCatEditor(force = false) {
+  if (!force) {
+    if (document.activeElement) document.activeElement.blur();
+    if (JSON.stringify(catEdit) !== catEditSnapshot && !confirm("保存していない変更があります。破棄して閉じますか？")) return;
+  }
+  catEditor.classList.remove("open");
+}
+
+function renderCatEditor() {
+  const body = document.getElementById("cat-editor-body");
+  body.innerHTML = catEdit.map((c, ci) => {
+    const subs = c.subs.map((s, si) => {
+      const n = s.orig ? countManuals(c.key, s.orig) : 0;
+      return `<div class="sub-row">
+        <input type="text" class="form-input" maxlength="30" placeholder="業務名" value="${escapeHTML(s.name)}" onchange="catEdit[${ci}].subs[${si}].name = this.value">
+        <span class="sub-count">${n ? n + "件" : ""}</span>
+        <button class="step-tool-btn" onclick="moveCatSub(${ci}, ${si}, -1)" ${si === 0 ? "disabled" : ""} aria-label="上へ">${icon("chevUp")}</button>
+        <button class="step-tool-btn" onclick="moveCatSub(${ci}, ${si}, 1)" ${si === c.subs.length - 1 ? "disabled" : ""} aria-label="下へ">${icon("chevDown")}</button>
+        <button class="step-tool-btn danger" onclick="removeCatSub(${ci}, ${si})" aria-label="削除">${icon("x")}</button>
+      </div>`;
+    }).join("");
+    return `<div class="edit-step-card cat-card">
+      <div class="step-tools">
+        <button class="step-tool-btn" onclick="moveCatGroup(${ci}, -1)" ${ci === 0 ? "disabled" : ""} aria-label="上へ">${icon("chevUp")}</button>
+        <button class="step-tool-btn" onclick="moveCatGroup(${ci}, 1)" ${ci === catEdit.length - 1 ? "disabled" : ""} aria-label="下へ">${icon("chevDown")}</button>
+        <button class="step-tool-btn danger" onclick="removeCatGroup(${ci})" aria-label="削除">${icon("trash")}</button>
+      </div>
+      <div class="step-no"><span>CATEGORY</span><b>${String(ci + 1).padStart(2, "0")}</b></div>
+      <label class="form-label">大カテゴリ名</label>
+      <input type="text" class="form-input cat-name" maxlength="20" placeholder="例：ホール" value="${escapeHTML(c.name)}" onchange="catEdit[${ci}].name = this.value">
+      <label class="form-label">業務名</label>
+      ${subs}
+      <button class="btn-add-step small" onclick="addCatSub(${ci})">${icon("plus")}業務を追加</button>
+    </div>`;
+  }).join("");
+}
+// 入力中の値を確実に反映してから並べ替え・削除する
+function syncCatInputs() { if (document.activeElement && catEditor.contains(document.activeElement)) document.activeElement.blur(); }
+
+function addCatGroup() {
+  syncCatInputs();
+  catEdit.push({ key: newCatKey(), name: "", subs: [{ name: "", orig: "" }] });
+  renderCatEditor();
+  const c = catEditor.querySelector(".v-content");
+  setTimeout(() => { c.scrollTop = c.scrollHeight; const inputs = catEditor.querySelectorAll(".cat-name"); inputs[inputs.length - 1]?.focus(); }, 100);
+}
+function moveCatGroup(ci, dir) {
+  syncCatInputs();
+  const j = ci + dir;
+  if (j < 0 || j >= catEdit.length) return;
+  [catEdit[ci], catEdit[j]] = [catEdit[j], catEdit[ci]];
+  renderCatEditor();
+}
+function removeCatGroup(ci) {
+  syncCatInputs();
+  const c = catEdit[ci];
+  const n = countManuals(c.key);
+  if (n) { alert(`「${c.name || "このカテゴリ"}」にはマニュアルが${n}件あります。\n先にマニュアルのカテゴリを変えるか、削除してください。`); return; }
+  if (catEdit.length <= 1) { alert("カテゴリは1つ以上必要です。"); return; }
+  if (!confirm(`「${c.name || "このカテゴリ"}」を削除しますか？`)) return;
+  catEdit.splice(ci, 1);
+  renderCatEditor();
+}
+function addCatSub(ci) {
+  syncCatInputs();
+  catEdit[ci].subs.push({ name: "", orig: "" });
+  renderCatEditor();
+  const rows = catEditor.querySelectorAll(".cat-card")[ci].querySelectorAll(".sub-row .form-input");
+  rows[rows.length - 1]?.focus();
+}
+function moveCatSub(ci, si, dir) {
+  syncCatInputs();
+  const subs = catEdit[ci].subs, j = si + dir;
+  if (j < 0 || j >= subs.length) return;
+  [subs[si], subs[j]] = [subs[j], subs[si]];
+  renderCatEditor();
+}
+function removeCatSub(ci, si) {
+  syncCatInputs();
+  const c = catEdit[ci], s = c.subs[si];
+  const n = s.orig ? countManuals(c.key, s.orig) : 0;
+  if (n) { alert(`「${s.orig}」にはマニュアルが${n}件あります。\n先にマニュアルの業務名を変えるか、削除してください。`); return; }
+  c.subs.splice(si, 1);
+  renderCatEditor();
+}
+
+function saveCatEditor() {
+  syncCatInputs();
+  const errors = [];
+  const names = new Set();
+  const list = [];
+  const renames = [];
+  catEdit.forEach((c, ci) => {
+    const name = (c.name || "").trim();
+    const label = name || `カテゴリ${ci + 1}`;
+    if (!name) errors.push(`カテゴリ${ci + 1}の名前が空です。`);
+    else if (names.has(name)) errors.push(`カテゴリ名「${name}」が重複しています。`);
+    names.add(name);
+    const subNames = new Set();
+    const subs = [];
+    c.subs.forEach(s => {
+      const sn = (s.name || "").trim();
+      if (!sn) { if (s.orig) errors.push(`「${label}」の「${s.orig}」の名前が空です。`); return; } // 新しく足した空欄は無視
+      if (subNames.has(sn)) { errors.push(`「${label}」の業務名「${sn}」が重複しています。`); return; }
+      subNames.add(sn);
+      subs.push(sn);
+      if (s.orig && s.orig !== sn) renames.push({ key: c.key, from: s.orig, to: sn });
+    });
+    if (!subs.length) errors.push(`「${label}」に業務名が1つもありません。`);
+    list.push({ key: c.key, name, subs });
+  });
+  if (!list.length) errors.push("カテゴリは1つ以上必要です。");
+  if (errors.length) { alert(errors.join("\n")); return; }
+
+  // カテゴリ一覧と、名前を変えた業務のマニュアルをまとめて1回で保存（途中で失敗しても半端にならない）
+  const updates = { manualCategories: { list, updatedAt: Date.now() } };
+  let moved = 0;
+  manuals.forEach(m => {
+    const r = renames.find(r => r.key === m.category && r.from === m.sub);
+    if (r) { updates[`manuals/${m.id}/sub`] = r.to; moved++; }
+  });
+  if (moved && !confirm(`業務名の変更にあわせて、マニュアル${moved}件の業務名も書き換えます。よろしいですか？`)) return;
+
+  const btn = document.getElementById("cat-save-btn");
+  btn.disabled = true; btn.innerText = "保存中…";
+  storeRef.update(updates).then(() => {
+    closeCatEditor(true);
+    toast("保存しました");
+  }).catch(e => {
+    alert(/permission/i.test(e.code || e.message || "")
+      ? "データベースのルールで書き込みが拒否されました。\nRealtime Databaseのルールに manualCategories を追加してください。"
+      : "保存に失敗しました: " + e.message);
+  }).finally(() => { btn.disabled = false; btn.innerText = "保存"; });
 }
 </script>
 </body>

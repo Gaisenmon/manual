@@ -1862,8 +1862,28 @@ async function migrateFromOldDb() {
     // 古いDBの一覧は旧形式（配列）の可能性があるので、新しい形に直してから書き込む
     if (isLegacyData(updates.manuals)) updates.manuals = convertLegacy(updates.manuals);
 
-    setBtn("書き込み中…", true);
-    await withTimeout(storeRef.update(updates), 60000, "書き込みに時間がかかりすぎています。通信状態を確認してください。");
+    // media と feedback はルールの書き込み許可が1件ごと（media/{id}）に付いているので、
+    // ノード丸ごとではなく1件ずつのパスに分けて書き込む。大きくなりすぎないよう数回に分けて送る
+    const entries = [];
+    Object.entries(updates).forEach(([k, v]) => {
+      if ((k === "media" || k === "feedback") && v && typeof v === "object") {
+        Object.entries(v).forEach(([id, item]) => entries.push([`${k}/${id}`, item]));
+      } else {
+        entries.push([k, v]);
+      }
+    });
+    const batches = [];
+    let cur = {}, size = 0;
+    entries.forEach(([path, val]) => {
+      const len = JSON.stringify(val).length;
+      if (size > 0 && size + len > 3 * 1024 * 1024) { batches.push(cur); cur = {}; size = 0; }
+      cur[path] = val; size += len;
+    });
+    if (size > 0) batches.push(cur);
+    for (let i = 0; i < batches.length; i++) {
+      setBtn(`書き込み中… ${i + 1}/${batches.length}`, true);
+      await withTimeout(storeRef.update(batches[i]), 60000, "書き込みに時間がかかりすぎています。通信状態を確認してください。");
+    }
     alert("コピーしました。\n\n" + report.join("\n"));
     manualReload();
   } catch (e) {

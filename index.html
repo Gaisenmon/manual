@@ -447,13 +447,22 @@ function withTimeout(promise, ms, msg) {
 }
 
 /* ============================== Firebase ============================== */
+// マニュアル専用のプロジェクト（ATSとは別）
 const firebaseConfig = {
+  apiKey: "AIzaSyAt3DIvpbvrYnlZgYH9J1KOl87YgMpAbrs",
+  authDomain: "gaisenmon-manual.firebaseapp.com",
+  databaseURL: "https://gaisenmon-manual-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "gaisenmon-manual",
+  storageBucket: "gaisenmon-manual.firebasestorage.app",
+  messagingSenderId: "59167218877",
+  appId: "1:59167218877:web:192f411a4bea75951dabd4"
+};
+// 【引っ越し用・一時的】以前マニュアルを保存していたプロジェクト（ATSと共用）。引っ越しが終わったら消す
+const OLD_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDzUmUoZsTpV8PlTU-qRyDiByOImpOc_Kk",
   authDomain: "akamo-staff-management.firebaseapp.com",
   databaseURL: "https://akamo-staff-management-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "akamo-staff-management",
-  storageBucket: "akamo-staff-management.firebasestorage.app",
-  messagingSenderId: "249759074777",
   appId: "1:249759074777:web:4b9b5332d22dae182bf1c8"
 };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -1184,6 +1193,13 @@ function renderSettings() {
         <button class="btn-toggle" onclick="openCatEditor()">編集する</button>
       </div>
     </div>` : ""}
+    ${isAdmin ? `<div class="settings-card">
+      <div class="settings-cap">MIGRATION ／ データの引っ越し</div>
+      <div class="settings-item">
+        <div class="settings-label">古いDBからコピー</div>
+        <button class="btn-toggle" id="migrate-btn" onclick="migrateFromOldDb()">コピーする</button>
+      </div>
+    </div>` : ""}
     ${isAdmin ? `<div class="settings-card"><div class="settings-cap">FEEDBACK ／ 評価とコメント</div><div id="fb-overview" style="font-size:12px;color:var(--muted);">読み込み中...</div></div>` : ""}
   `;
   if (isAdmin) loadFeedbackOverview();
@@ -1803,6 +1819,60 @@ function saveCatEditor() {
       ? "データベースのルールで書き込みが拒否されました。\nRealtime Databaseのルールに manualCategories を追加してください。"
       : "保存に失敗しました: " + e.message);
   }).finally(() => { btn.disabled = false; btn.innerText = "保存"; });
+}
+
+/* ============================== 【一時的】古いDBからの引っ越し ============================== */
+// 古いDB（ATSと共用）の manuals・media・feedback・manualCategories を、新しいDBの同じ場所へコピーする。
+// 引っ越しが終わったら、この部分・OLD_FIREBASE_CONFIG・設定画面のボタンを消す。
+const MIGRATE_NODES = [
+  { key: "manuals", label: "マニュアル" },
+  { key: "media", label: "画像" },
+  { key: "feedback", label: "評価・コメント" },
+  { key: "manualCategories", label: "カテゴリ設定" },
+];
+async function migrateFromOldDb() {
+  if (!isAdmin) return;
+  const btn = document.getElementById("migrate-btn");
+  const setBtn = (t, dis) => { if (btn) { btn.innerText = t; btn.disabled = dis; } };
+  try {
+    const now = (await withTimeout(manualsRef.once('value'), 15000, "新しいDBに接続できませんでした。")).val();
+    const nowCount = now ? Object.keys(now).length : 0;
+    const msg = nowCount
+      ? `新しいDBにはすでにマニュアルが${nowCount}件あります。\n古いDBの内容で上書きしますか？（新しいDBで作った分は消えます）`
+      : "古いDBから、マニュアル・画像・評価とコメント・カテゴリ設定をコピーします。よろしいですか？";
+    if (!confirm(msg)) return;
+
+    setBtn("読み込み中…", true);
+    const oldApp = firebase.apps.find(a => a.name === "old") || firebase.initializeApp(OLD_FIREBASE_CONFIG, "old");
+    const oldRoot = oldApp.database().ref('stores/gaisenmon');
+
+    const updates = {};
+    const report = [];
+    for (const n of MIGRATE_NODES) {
+      try {
+        const v = (await withTimeout(oldRoot.child(n.key).once('value'), 30000, "時間切れ")).val();
+        if (v === null || v === undefined) { report.push(`${n.label}：なし`); continue; }
+        updates[n.key] = v;
+        report.push(`${n.label}：${typeof v === "object" ? Object.keys(v).length + "件" : "あり"}`);
+      } catch (e) {
+        report.push(`${n.label}：読み込めませんでした（${e.message || e.code}）`);
+      }
+    }
+    if (!updates.manuals) { alert("古いDBからマニュアルを読み込めませんでした。\n\n" + report.join("\n")); return; }
+    // 古いDBの一覧は旧形式（配列）の可能性があるので、新しい形に直してから書き込む
+    if (isLegacyData(updates.manuals)) updates.manuals = convertLegacy(updates.manuals);
+
+    setBtn("書き込み中…", true);
+    await withTimeout(storeRef.update(updates), 60000, "書き込みに時間がかかりすぎています。通信状態を確認してください。");
+    alert("コピーしました。\n\n" + report.join("\n"));
+    manualReload();
+  } catch (e) {
+    alert(/permission/i.test(e.code || e.message || "")
+      ? "データベースのルールで拒否されました。新しいDBのルールが公開されているか確認してください。"
+      : "引っ越しに失敗しました: " + (e.message || e));
+  } finally {
+    setBtn("コピーする", false);
+  }
 }
 </script>
 </body>
